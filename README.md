@@ -2,6 +2,16 @@
 
 TypeScript版 現場で活用するためのAIエージェント実践入門
 
+## 開発環境
+
+本プロジェクトでは以下のツールを使用しています。
+
+| ツール | 説明 |
+| --- | --- |
+| [pnpm](https://pnpm.io/) | パッケージマネージャー |
+| [tsx](https://www.npmjs.com/package/tsx) | TypeScript ファイルの直接実行 |
+| [Biome](https://biomejs.dev/) | リンター・フォーマッター |
+
 ## direnvのインストール
 
 direnvを使って環境変数を管理します。
