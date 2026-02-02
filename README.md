@@ -11,5 +11,5 @@ pnpm install
 TSファイル実行例
 
 ```zsh
-pnpm tsx src/chapter3/test3-3.ts
+pnpm tsx src/chapter3/test3-1-chat-completions-api.ts
 ```
