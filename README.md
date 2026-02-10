@@ -110,3 +110,27 @@ pnpm --filter @ai-suburi/core <command>
 # @ai-suburi/docs パッケージ
 pnpm --filter @ai-suburi/docs <command>
 ```
+
+## Claude Code Skills
+
+本プロジェクトでは、ドキュメント管理を効率化するための [Claude Code スキル](.claude/skills/) を用意しています。
+
+| スキル | コマンド例 | 概要 |
+| --- | --- | --- |
+| [add-doc](.claude/skills/add-doc/SKILL.md) | `/add-doc <ソースコードパス>` | ソースコードからドキュメントセクションを自動生成・追記 |
+| [review-doc](.claude/skills/review-doc/SKILL.md) | `/review-doc chapter3` | ドキュメントの正確性・整合性チェック＆修正 |
+| [brushup-doc](.claude/skills/brushup-doc/SKILL.md) | `/brushup-doc chapter3` | ドキュメントの文章品質向上＆内容充実化 |
+
+### 推奨ワークフロー
+
+```plaintext
+1. ソースコードを新規作成
+       ↓
+2. /add-doc でドキュメントセクションを自動生成
+       ↓
+3. /review-doc でコードとの整合性をチェック
+       ↓
+4. /brushup-doc で文章品質・内容を仕上げ
+```
+
+各スキルの詳細は [.claude/skills/README.md](.claude/skills/README.md) を参照してください。
