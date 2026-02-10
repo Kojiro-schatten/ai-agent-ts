@@ -1,6 +1,6 @@
-import clsx from "clsx";
-import type { ReactNode } from "react";
-import styles from "./styles.module.css";
+import clsx from 'clsx';
+import type { ReactNode } from 'react';
+import styles from './styles.module.css';
 
 type FeatureItem = {
   title: string;
@@ -10,8 +10,8 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: "AI エージェントを知る",
-    imgSrc: require("@site/static/img/1-icon.png").default,
+    title: 'AI エージェントを知る',
+    imgSrc: require('@site/static/img/1-icon.png').default,
     description: (
       <>
         AI
@@ -21,8 +21,8 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
-    title: "AI エージェントを作る",
-    imgSrc: require("@site/static/img/2-icon.png").default,
+    title: 'AI エージェントを作る',
+    imgSrc: require('@site/static/img/2-icon.png').default,
     description: (
       <>
         OpenAI API と TypeScript を使い、ヘルプデスク支援・データ分析・
@@ -32,8 +32,8 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
-    title: "AI エージェントを現場で使う",
-    imgSrc: require("@site/static/img/3-icon.png").default,
+    title: 'AI エージェントを現場で使う',
+    imgSrc: require('@site/static/img/3-icon.png').default,
     description: (
       <>
         評価指標の設計やエラー分析、UX・リスク管理・モニタリングなど、AI
@@ -45,7 +45,7 @@ const FeatureList: FeatureItem[] = [
 
 function Feature({ title, imgSrc, description }: FeatureItem) {
   return (
-    <div className={clsx("col col--4")}>
+    <div className={clsx('col col--4')}>
       <div className={styles.featureCard}>
         <div className={styles.featureCardAccent} />
         <div className={styles.featureIconWrapper}>
@@ -67,8 +67,8 @@ export default function HomepageFeatures(): ReactNode {
           AI エージェントの理解から実装・運用まで、3 つのステップで学べます
         </p>
         <div className="row">
-          {FeatureList.map((props, idx) => (
-            <Feature key={idx} {...props} />
+          {FeatureList.map((props) => (
+            <Feature key={props.title} {...props} />
           ))}
         </div>
       </div>

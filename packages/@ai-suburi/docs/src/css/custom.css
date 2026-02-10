@@ -20,7 +20,7 @@
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme='dark'] {
+[data-theme="dark"] {
   --ifm-color-primary: #6ba8e8;
   --ifm-color-primary-dark: #4a96e3;
   --ifm-color-primary-darker: #2e86de;
@@ -56,8 +56,8 @@ html {
 
 /* Light mode: subgraph */
 :root .docusaurus-mermaid-container .cluster rect {
-  fill: #f0f7ff !important;
-  stroke: #93c5fd !important;
+  fill: #f0f7ff;
+  stroke: #93c5fd;
   stroke-width: 1.5px;
   rx: 8;
   ry: 8;
@@ -74,37 +74,37 @@ html {
 }
 
 /* Dark mode: node styling */
-[data-theme='dark'] .docusaurus-mermaid-container .node rect,
-[data-theme='dark'] .docusaurus-mermaid-container .node polygon,
-[data-theme='dark'] .docusaurus-mermaid-container .node circle {
-  fill: #1e3a5f !important;
-  stroke: #6ba8e8 !important;
+[data-theme="dark"] .docusaurus-mermaid-container .node rect,
+[data-theme="dark"] .docusaurus-mermaid-container .node polygon,
+[data-theme="dark"] .docusaurus-mermaid-container .node circle {
+  fill: #1e3a5f;
+  stroke: #6ba8e8;
   stroke-width: 1.5px;
 }
 
-[data-theme='dark'] .docusaurus-mermaid-container .node .nodeLabel {
+[data-theme="dark"] .docusaurus-mermaid-container .node .nodeLabel {
   color: #e2e8f0;
 }
 
 /* Dark mode: subgraph */
-[data-theme='dark'] .docusaurus-mermaid-container .cluster rect {
-  fill: #0f172a !important;
-  stroke: #2e86de !important;
+[data-theme="dark"] .docusaurus-mermaid-container .cluster rect {
+  fill: #0f172a;
+  stroke: #2e86de;
   stroke-width: 1.5px;
   rx: 8;
   ry: 8;
 }
 
-[data-theme='dark'] .docusaurus-mermaid-container .cluster span {
-  color: #93c5fd !important;
+[data-theme="dark"] .docusaurus-mermaid-container .cluster span {
+  color: #93c5fd;
 }
 
 /* Dark mode: edge lines */
-[data-theme='dark'] .docusaurus-mermaid-container .edgePath .path {
+[data-theme="dark"] .docusaurus-mermaid-container .edgePath .path {
   stroke: #94a3b8;
   stroke-width: 1.5px;
 }
 
-[data-theme='dark'] .docusaurus-mermaid-container .arrowheadPath {
+[data-theme="dark"] .docusaurus-mermaid-container .arrowheadPath {
   fill: #94a3b8;
 }

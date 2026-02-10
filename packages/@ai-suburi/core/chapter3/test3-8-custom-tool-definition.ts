@@ -1,10 +1,10 @@
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
+import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
 
 // 引数スキーマを定義
 const AddArgs = z.object({
-  a: z.number().int().describe("加算する最初の整数。"),
-  b: z.number().int().describe("加算する2つ目の整数。"),
+  a: z.number().int().describe('加算する最初の整数。'),
+  b: z.number().int().describe('加算する2つ目の整数。'),
 });
 
 // Tool定義
@@ -13,15 +13,15 @@ const add = tool(
     return String(a + b);
   },
   {
-    name: "add",
+    name: 'add',
     description: [
-      "このToolは2つの整数を引数として受け取り、それらの合計を返します。",
-      "",
-      "使用例:",
-      "  例:",
+      'このToolは2つの整数を引数として受け取り、それらの合計を返します。',
+      '',
+      '使用例:',
+      '  例:',
       '    入力: {"a": 3, "b": 5}',
-      "    出力: 8",
-    ].join("\n"),
+      '    出力: 8',
+    ].join('\n'),
     schema: AddArgs,
   },
 );
