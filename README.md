@@ -2,6 +2,8 @@
 
 TypeScript版 現場で活用するためのAIエージェント実践入門
 
+> 📖 本リポジトリは [genai-agent-advanced-book](https://github.com/masamasa59/genai-agent-advanced-book) のサンプルコードを Python から TypeScript へ変換・再実装したものです。
+
 ## ディレクトリ構成
 
 本プロジェクトはpnpmワークスペースによるモノレポ構成です。
