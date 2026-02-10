@@ -14,6 +14,7 @@ sidebar_position: 1
 - **Function Calling** を使った外部ツールとの連携パターン
 - **Tavily API** を使った AI エージェント向けの Web 検索
 - **LangChain** の `tool` ヘルパーによるカスタム Tool 定義
+- **DuckDuckGo** を使った無料の Web 検索とページ取得
 
 :::
 
@@ -29,6 +30,7 @@ sidebar_position: 1
 | 3-6 | Function Calling による外部ツール連携 |
 | 3-7 | Tavily API を使った Web 検索 |
 | 3-8 | LangChain カスタム Tool 定義 |
+| 3-9 | DuckDuckGo Web 検索 |
 
 :::info 前提条件
 
@@ -505,6 +507,105 @@ console.log(add.schema);
 pnpm tsx chapter3/test3-8-custom-tool-definition.ts
 ```
 
+## 3-9. DuckDuckGo Web 検索
+
+[duck-duck-scrape](https://www.npmjs.com/package/duck-duck-scrape) は、DuckDuckGo の検索結果をプログラムから取得できるライブラリです。
+3-7 の Tavily とは異なり、**API キー不要・無料**で利用できるため、手軽に Web 検索機能を組み込みたい場合に便利です。
+
+### Tavily との比較
+
+| 項目 | Tavily（3-7） | DuckDuckGo（3-9） |
+| --- | --- | --- |
+| API キー | 必要 | 不要 |
+| 料金 | 無料枠あり（月 1,000 回） | 完全無料 |
+| コンテンツ抽出 | 自動抽出（ノイズ除去済み） | なし（HTML を自前で取得・パースする必要あり） |
+| LLM 向け最適化 | あり | なし |
+
+### サンプルの処理ステップ
+
+このサンプルでは以下の 2 ステップを実装しています。
+
+1. **DuckDuckGo 検索** - `search()` 関数でキーワード検索を実行し、上位 3 件の結果（タイトル・概要・URL）を表示
+2. **Web ページ取得** - 最初の検索結果の URL に対して `fetch` で HTTP リクエストを送り、HTML コンテンツのサイズと冒頭部分を表示
+
+:::tip
+DuckDuckGo 検索は API キーが不要なため、環境変数の設定なしですぐに試せる。ただし、Tavily のようなコンテンツ抽出機能はないため、取得した HTML から必要な情報を抽出するには別途パース処理が必要になる。
+:::
+
+:::caution レート制限について
+`duck-duck-scrape` は DuckDuckGo の Web ページをスクレイピングして検索結果を取得しています。そのため、短時間に連続してリクエストを送ると **「DDG detected an anomaly in the request」** エラーが発生することがあります。このエラーが発生した場合は、しばらく時間を空けてから再実行してください。サンプルコードにはリトライ機能（最大 3 回、指数バックオフ）を組み込んでいますが、それでも失敗する場合があります。
+:::
+
+```typescript title="chapter3/test3-9-duckduckgo-search.ts"
+import { SafeSearchType, search } from "duck-duck-scrape";
+
+// リトライ付きで検索を実行する関数
+async function searchWithRetry(
+  query: string,
+  maxRetries = 3,
+  baseDelay = 2000,
+) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await search(query, {
+        safeSearch: SafeSearchType.OFF,
+        locale: "ja-JP",
+      });
+    } catch (e) {
+      if (attempt === maxRetries) throw e;
+      const delay = baseDelay * attempt;
+      console.log(
+        `検索リクエストがブロックされました。${delay}ms 待機してリトライします... (${attempt}/${maxRetries})`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error("検索に失敗しました");
+}
+
+// DuckDuckGo検索を実行（リトライ付き）
+const searchQuery = "AIエージェント 実践本";
+const searchResponse = await searchWithRetry(searchQuery);
+const searchResults = searchResponse.results.slice(0, 3);
+
+// 検索結果を表示
+console.log("\n検索結果:");
+searchResults.forEach((result, i) => {
+  console.log(`\n${i + 1}. ${result.title}`);
+  console.log(`   概要: ${(result.description ?? "").slice(0, 100)}...`);
+  console.log(`   URL: ${result.url}`);
+});
+
+// 最初の検索結果のURLを取得
+if (searchResults.length > 0) {
+  const url = searchResults[0]?.url ?? "";
+  console.log(`\n最初の検索結果のURLにアクセスしています: ${url}`);
+
+  // Webページを取得
+  try {
+    const response = await fetch(url);
+    const htmlContent = await response.text();
+    console.log(`\nHTTPステータスコード: ${response.status}`);
+    console.log(
+      `\nHTMLコンテンツの大きさ: ${new Blob([htmlContent]).size} bytes`,
+    );
+    console.log(
+      `\nHTMLコンテンツの最初の部分: \n${htmlContent.slice(0, 500)}...`,
+    );
+  } catch (e) {
+    console.log(`\nエラーが発生しました: ${e}`);
+  }
+} else {
+  console.log("\n検索結果はありませんでした");
+}
+```
+
+**実行方法:**
+
+```bash
+pnpm tsx chapter3/test3-9-duckduckgo-search.ts
+```
+
 ---
 
 ## 参考文献
@@ -515,3 +616,4 @@ pnpm tsx chapter3/test3-8-custom-tool-definition.ts
 - [Zod](https://zod.dev/) - TypeScript ファーストのスキーマバリデーションライブラリ
 - [Tavily](https://docs.tavily.com/) - AI エージェント向け Web 検索 API の公式ドキュメント
 - [LangChain Tools](https://js.langchain.com/docs/how_to/custom_tools/) - LangChain カスタム Tool の公式ドキュメント
+- [duck-duck-scrape](https://www.npmjs.com/package/duck-duck-scrape) - DuckDuckGo 検索結果を取得する npm パッケージ
