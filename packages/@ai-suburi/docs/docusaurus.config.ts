@@ -73,12 +73,6 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
-          position: 'left',
-          label: 'Tutorial',
-        },
-        {
           href: 'https://github.com/Imamachi-n/genai-agent-advanced-book-typescript',
           label: 'GitHub',
           position: 'right',
@@ -92,8 +86,8 @@ const config: Config = {
           title: 'Docs',
           items: [
             {
-              label: 'Tutorial',
-              to: '/docs/intro',
+              label: 'Docs',
+              to: '/docs/chapter3',
             },
           ],
         },
