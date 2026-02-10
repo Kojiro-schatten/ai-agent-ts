@@ -353,7 +353,10 @@ async function main() {
   });
 
   // モデルの応答を処理
-  const responseMessage = response.choices[0]!.message;
+  const responseMessage = response.choices[0]?.message;
+  if (!responseMessage) {
+    throw new Error("No response message from the model");
+  }
   messages.push(responseMessage);
 
   console.log("モデルからの応答:");
