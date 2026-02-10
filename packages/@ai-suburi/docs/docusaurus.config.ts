@@ -64,6 +64,23 @@ const config: Config = {
     colorMode: {
       respectPrefersColorScheme: true,
     },
+    mermaid: {
+      theme: {
+        light: "base",
+        dark: "dark",
+      },
+      options: {
+        themeVariables: {
+          primaryColor: "#DBEAFE",
+          primaryTextColor: "#1E3A5F",
+          primaryBorderColor: "#3B82F6",
+          lineColor: "#94A3B8",
+          secondaryColor: "#EDE9FE",
+          tertiaryColor: "#F0F9FF",
+          fontFamily: "inherit",
+        },
+      },
+    },
     navbar: {
       title: "現場で活用するためのAIエージェント実践入門（TypeScript 版）",
       logo: {

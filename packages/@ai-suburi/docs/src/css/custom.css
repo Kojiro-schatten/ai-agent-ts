@@ -28,3 +28,68 @@
   --ifm-color-primary-lightest: #d0e2f8;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
+
+/* ---- Mermaid diagram styles ---- */
+
+/* Light mode: node styling */
+:root .docusaurus-mermaid-container .node rect,
+:root .docusaurus-mermaid-container .node polygon,
+:root .docusaurus-mermaid-container .node circle {
+  stroke: #3b82f6;
+  stroke-width: 1.5px;
+}
+
+/* Light mode: subgraph */
+:root .docusaurus-mermaid-container .cluster rect {
+  fill: #f0f7ff !important;
+  stroke: #93c5fd !important;
+  stroke-width: 1.5px;
+  rx: 8;
+  ry: 8;
+}
+
+/* Light mode: edge lines */
+:root .docusaurus-mermaid-container .edgePath .path {
+  stroke: #64748b;
+  stroke-width: 1.5px;
+}
+
+:root .docusaurus-mermaid-container .arrowheadPath {
+  fill: #64748b;
+}
+
+/* Dark mode: node styling */
+[data-theme='dark'] .docusaurus-mermaid-container .node rect,
+[data-theme='dark'] .docusaurus-mermaid-container .node polygon,
+[data-theme='dark'] .docusaurus-mermaid-container .node circle {
+  fill: #1e3a5f !important;
+  stroke: #6ba8e8 !important;
+  stroke-width: 1.5px;
+}
+
+[data-theme='dark'] .docusaurus-mermaid-container .node .nodeLabel {
+  color: #e2e8f0;
+}
+
+/* Dark mode: subgraph */
+[data-theme='dark'] .docusaurus-mermaid-container .cluster rect {
+  fill: #0f172a !important;
+  stroke: #2e86de !important;
+  stroke-width: 1.5px;
+  rx: 8;
+  ry: 8;
+}
+
+[data-theme='dark'] .docusaurus-mermaid-container .cluster span {
+  color: #93c5fd !important;
+}
+
+/* Dark mode: edge lines */
+[data-theme='dark'] .docusaurus-mermaid-container .edgePath .path {
+  stroke: #94a3b8;
+  stroke-width: 1.5px;
+}
+
+[data-theme='dark'] .docusaurus-mermaid-container .arrowheadPath {
+  fill: #94a3b8;
+}
