@@ -77,12 +77,14 @@
 .heroBanner {
   position: relative;
   overflow: hidden;
-  padding: 8rem 2rem 6rem;
+  padding: 6rem 2rem 6rem;
   min-height: 520px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #0a0e1a;
+  margin-top: -4.5rem;
+  padding-top: 8rem;
 }
 
 /* ---------- Animated Background ---------- */
