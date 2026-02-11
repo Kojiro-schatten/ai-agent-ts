@@ -36,6 +36,9 @@ TypeScript版 現場で活用するためのAIエージェント実践入門
 | [tsx](https://www.npmjs.com/package/tsx) | TypeScript ファイルの直接実行 |
 | [Biome](https://biomejs.dev/) | リンター・フォーマッター |
 | [Docusaurus](https://docusaurus.io/) | ドキュメントサイト |
+| [Rspack](https://rspack.rs/) | Rust 製の高速バンドラ（Docusaurus のビルドで使用） |
+| [SWC](https://swc.rs/) | Rust 製の高速トランスパイラ・ミニファイア（Docusaurus のビルドで使用） |
+| [Lightning CSS](https://lightningcss.dev/) | Rust 製の高速 CSS パーサー・ミニファイア（Docusaurus のビルドで使用） |
 
 ## セットアップ
 
