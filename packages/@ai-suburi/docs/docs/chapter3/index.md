@@ -53,7 +53,13 @@ pnpm tsx chapter3/<ファイル名>.ts
 Chat Completions API は、OpenAI のチャットモデルと対話するための最も基本的な API です。
 AI エージェントを構築する際、すべての対話はこの API を通じて行われるため、まずここでの基本操作をしっかり押さえておくことが重要です。
 
-`messages` 配列にロール（`system`, `user`, `assistant`）とメッセージを渡すことで、モデルからの応答を取得できます。
+`messages` 配列にロール（`system`, `user`, `assistant`）とメッセージを渡すことで、モデルからの応答を取得できます。各ロールの役割は以下のとおりです。
+
+| ロール | 役割 |
+| --- | --- |
+| `system` | モデルの振る舞いやルールを設定する指示（例: 「あなたは親切なアシスタントです」） |
+| `user` | ユーザーからの入力メッセージ |
+| `assistant` | モデルからの応答。会話履歴として渡すことで、文脈を維持した対話が可能になる |
 
 このサンプルでは以下を行います。
 
@@ -120,6 +126,8 @@ Prompt_tokens_details: { cached_tokens: 0, ... }
 
 ## 3-3. JSON Outputs
 
+3-1 の Chat Completions API では、モデルは自由形式のテキストを返します。しかし、実際のアプリケーション開発では、モデルの出力をプログラムで処理したいケースが多くあります。たとえば、抽出した情報をデータベースに保存したり、別の API に渡したりする場合です。このような場面で役立つのが JSON モードです。
+
 JSON モードを使うと、モデルの出力を有効な JSON 形式に制約できます。
 `response_format: { type: "json_object" }` を指定することで、モデルは必ず JSON として解析可能な文字列を返します。
 
@@ -180,21 +188,33 @@ pnpm tsx chapter3/test3-3-json-outputs.ts
 JSON モードでは出力が有効な JSON であることは保証されますが、特定のスキーマに従うことは保証されません。たとえば、キー名が `"winner"` ではなく `"champion"` になる可能性があります。スキーマへの厳密な準拠が必要な場合は、次のセクション（3-4）の Structured Outputs を使用してください。
 :::
 
+:::tip assistant ロールによるスキーマヒント
+このサンプルでは `role: "assistant"` のメッセージで `{"winner": "String"}` を渡しています。これは会話履歴として「モデルが過去にこの形式で応答した」という文脈を作ることで、同じキー名・構造で応答するようモデルを誘導するテクニックです。JSON モードではスキーマの厳密な保証がないため、このようなヒントが有効です。
+:::
+
 ## 3-4. Structured Outputs
 
 Structured Outputs は、3-3 で紹介した JSON モードの進化版です。
 JSON モードではスキーマの遵守が保証されませんでしたが、Structured Outputs では [Zod](https://zod.dev/)（TypeScript ファーストのスキーマバリデーションライブラリ）でスキーマを定義し、`zodResponseFormat` ヘルパーを使うことで、モデルの出力がスキーマに 100% 準拠することが保証されます。
 型安全なデータ抽出や、構造化された情報の取得に最適です。
 
+### 出力形式の比較: テキスト vs JSON モード vs Structured Outputs
+
+ここまでの 3 つの出力形式を比較すると、以下のようになります。
+
+| 項目 | テキスト（3-1） | JSON モード（3-3） | Structured Outputs（3-4） |
+| --- | --- | --- | --- |
+| 出力形式 | 自由形式テキスト | 有効な JSON | スキーマ準拠の JSON |
+| スキーマ保証 | なし | JSON として有効なことのみ | 100% スキーマ準拠 |
+| 型安全性 | なし | なし（手動パースが必要） | あり（`parsed` から型付きオブジェクトを取得） |
+| 主なユースケース | 自然言語の応答生成 | 簡易的な構造化データ取得 | 厳密な構造化データ抽出 |
+| 設定方法 | 指定不要 | `response_format: { type: "json_object" }` | `zodResponseFormat(schema, name)` |
+
 このサンプルでは以下のポイントを示しています。
 
 - Zod でレシピのスキーマ（名前・人数・材料・手順）を定義
 - `client.chat.completions.parse()` で型安全なパース結果を取得
 - `response.choices[0].message.parsed` から直接型付きオブジェクトにアクセス
-
-:::tip
-JSON モード（3-3）との違いは、Structured Outputs ではスキーマに厳密に従った出力が保証される点です。JSON モードでは出力が JSON であることは保証されますが、スキーマの遵守は保証されません。
-:::
 
 ### temperature パラメータとは？
 
@@ -266,10 +286,14 @@ Steps: [ '1. ひき肉をフライパンで炒める', '2. タコスシーズニ
 
 ## 3-6. Function Calling
 
+ここまでの 3-1 〜 3-4 では、モデルへの入出力形式について学びました。ここからは、モデルが **外部の世界と連携する** 方法を見ていきます。
+
 Function Calling は、モデルが外部の関数（ツール）を呼び出せるようにする仕組みです。
 [Chapter 2](../chapter2/index.md) で解説した「ツール」コンポーネントを API レベルで実現するための中核的な機能であり、AI エージェント開発において最も重要な概念の 1 つです。
 
 モデル自体が関数を実行するわけではなく、「この関数をこの引数で呼ぶべき」という指示を JSON 形式で返します。アプリケーション側で実際の関数を実行し、その結果をモデルに返すことで、外部データを活用した応答を生成できます。
+
+たとえば、「東京の天気を教えて」というユーザーの質問に対して、モデルは `get_weather` 関数を `{"location": "Tokyo"}` という引数で呼ぶべきだと判断します。アプリケーションが実際に天気情報を取得してモデルに返すと、モデルはその情報を元に自然言語で応答を生成します。
 
 ### tools パラメータの構造
 
@@ -294,8 +318,33 @@ Function Calling は、モデルが外部の関数（ツール）を呼び出せ
 4. **結果の返却** - 関数の実行結果を `role: "tool"` メッセージとして返す
 5. **最終応答** - モデルが関数の結果を踏まえた自然言語の応答を生成
 
-:::tip
-`tool_choice: "auto"` を指定すると、モデルが関数を呼ぶかどうかを自動で判断します。`"required"` にすると必ずいずれかの関数を呼び、`{"type": "function", "function": {"name": "get_weather"}}` のように指定すると特定の関数を強制的に呼ばせることができます。
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant App as アプリケーション
+    participant Model as OpenAI モデル
+    participant Func as get_weather 関数
+
+    User->>App: 「東京の天気を教えて」
+    App->>Model: messages + tools 定義を送信
+    Model-->>App: tool_calls を返却<br/>（name: get_weather, args: {location: "Tokyo"}）
+    App->>Func: getWeather("Tokyo") を実行
+    Func-->>App: "晴れ、気温25度"
+    App->>Model: role: "tool" で結果を返却
+    Model-->>App: 「東京の天気は晴れで、気温は25度です」
+    App-->>User: 最終応答を表示
+```
+
+:::tip tool_choice の使い分け
+`tool_choice` パラメータで、モデルの関数呼び出し動作を制御できます。
+
+| 値 | 動作 | ユースケース |
+| --- | --- | --- |
+| `"auto"` | モデルが呼ぶかどうかを自動判断 | 通常の対話（関数が不要な質問もある場合） |
+| `"required"` | 必ずいずれかの関数を呼ぶ | ツール利用が前提のワークフロー |
+| `{"type": "function", "function": {"name": "..."}}` | 特定の関数を強制呼び出し | テストや特定の処理を確実に実行したい場合 |
+| `"none"` | 関数を呼ばない | ツール定義を渡しつつも通常の応答がほしい場合 |
+
 :::
 
 ```typescript title="chapter3/test3-6-function-calling.ts"
@@ -423,8 +472,10 @@ Final Response: 東京の天気は晴れで、気温は25度です。
 
 ## 3-7. Tavily Search
 
+3-6 では Function Calling を使って外部関数を呼び出す方法を学びました。ここからは、AI エージェントが利用する具体的な外部ツールの例として、Web 検索 API を紹介します。
+
 [Tavily](https://tavily.com/) は、AI エージェント向けに最適化された Web 検索 API です。
-通常の検索エンジンとは異なり、検索結果のスニペットだけでなく、ページの主要コンテンツを抽出して返すため、LLM が直接活用しやすい形式になっています。
+通常の検索エンジンとは異なり、検索結果のスニペット（検索結果に表示される短い抜粋テキスト）だけでなく、ページの主要コンテンツを抽出して返すため、LLM が直接活用しやすい形式になっています。
 
 ### なぜ Tavily が必要なのか？
 
@@ -513,8 +564,19 @@ pnpm tsx chapter3/test3-7-tavily-search.ts
 
 ## 3-8. LangChain カスタム Tool 定義
 
-[LangChain](https://js.langchain.com/) の `tool` ヘルパーを使うと、AI エージェントが利用できるカスタム Tool を簡潔に定義できます。
-3-6 の Function Calling では OpenAI API の JSON Schema 形式でスキーマ定義を直接記述しましたが、LangChain では Zod スキーマと関数本体をまとめて定義できます。これにより、型安全性を維持しながら宣言的に Tool を作成でき、定義の重複やミスを減らせます。
+3-6 の Function Calling では、OpenAI API の JSON Schema 形式でツールのスキーマを手動で記述しました。この方法は API の仕組みを理解するには最適ですが、スキーマ定義と関数実装が分離しているため、ツールの数が増えるとメンテナンスが煩雑になります。
+
+[LangChain](https://js.langchain.com/) の `tool` ヘルパーを使うと、この問題を解決できます。Zod スキーマと関数本体をまとめて定義できるため、型安全性を維持しながら宣言的に Tool を作成でき、定義の重複やミスを減らせます。
+
+### Function Calling（3-6）との比較
+
+| 項目 | Function Calling（3-6） | LangChain Tool（3-8） |
+| --- | --- | --- |
+| スキーマ定義 | JSON Schema を手動で記述 | Zod スキーマで型安全に定義 |
+| 関数との紐付け | スキーマと関数実装が分離 | スキーマ・関数・メタデータを一体で定義 |
+| 型安全性 | 引数の手動パース（`JSON.parse`）が必要 | Zod による自動バリデーション |
+| 実行方法 | 自前でディスパッチ処理を実装 | `invoke()` メソッドで統一的に実行 |
+| 適したケース | API の仕組みの理解、軽量な実装 | 本格的なエージェント開発、ツールの再利用 |
 
 ### LangChain の Tool とは？
 
@@ -598,8 +660,10 @@ ZodObject { ... }
 
 ## 3-9. DuckDuckGo Web 検索
 
+3-7 では AI エージェント向けに最適化された Tavily を紹介しましたが、API キーの取得が必要でした。ここでは、より手軽に Web 検索を試せる代替手段を紹介します。
+
 [duck-duck-scrape](https://www.npmjs.com/package/duck-duck-scrape) は、DuckDuckGo の検索結果をプログラムから取得できるライブラリです。
-3-7 の Tavily とは異なり、**API キー不要・無料**で利用できるため、手軽に Web 検索機能を組み込みたい場合に便利です。
+Tavily とは異なり、**API キー不要・無料**で利用できるため、手軽に Web 検索機能を組み込みたい場合に便利です。
 
 ### Tavily との比較
 
@@ -617,8 +681,14 @@ ZodObject { ... }
 1. **DuckDuckGo 検索** - `search()` 関数でキーワード検索を実行し、上位 3 件の結果（タイトル・概要・URL）を表示
 2. **Web ページ取得** - 最初の検索結果の URL に対して `fetch` で HTTP リクエストを送り、HTML コンテンツのサイズと冒頭部分を表示
 
+ステップ 2 で取得されるのは生の HTML です。AI エージェントで実際に活用するには、HTML パーサー（[cheerio](https://www.npmjs.com/package/cheerio) など）を使って本文を抽出する追加処理が必要です。この点が、コンテンツ抽出まで自動で行う Tavily（3-7）との大きな違いです。
+
 :::tip
-DuckDuckGo 検索は API キーが不要なため、環境変数の設定なしですぐに試せます。ただし、Tavily のようなコンテンツ抽出機能はないため、取得した HTML から必要な情報を抽出するには別途パース処理（例: [cheerio](https://www.npmjs.com/package/cheerio) などの HTML パーサー）が必要です。
+DuckDuckGo 検索は API キーが不要なため、環境変数の設定なしですぐに試せます。開発の初期段階でサクッと Web 検索を組み込みたいときに最適です。
+:::
+
+:::info Web 検索ツールの選択基準
+プロトタイピングや学習目的であれば DuckDuckGo で十分です。一方、本番環境の AI エージェントでは、コンテンツ抽出の品質や安定性の面から Tavily の利用を推奨します。
 :::
 
 :::caution レート制限について
@@ -718,11 +788,12 @@ HTMLコンテンツの最初の部分:
 
 ## 参考文献
 
-- OpenAI. [Chat Completions API](https://platform.openai.com/docs/guides/text-generation) - Chat Completions API の公式ガイド
-- OpenAI. [Structured Outputs](https://platform.openai.com/docs/guides/structured-outputs) - JSON モードおよび Structured Outputs の公式ドキュメント
-- OpenAI. [Function Calling](https://platform.openai.com/docs/guides/function-calling) - Function Calling の公式ドキュメント
-- [Zod](https://zod.dev/) - TypeScript ファーストのスキーマバリデーションライブラリ
-- [Tavily](https://docs.tavily.com/) - AI エージェント向け Web 検索 API の公式ドキュメント
-- [LangChain Tools](https://js.langchain.com/docs/how_to/custom_tools/) - LangChain カスタム Tool の公式ドキュメント
-- [duck-duck-scrape](https://www.npmjs.com/package/duck-duck-scrape) - DuckDuckGo 検索結果を取得する npm パッケージ
-- [cheerio](https://www.npmjs.com/package/cheerio) - サーバーサイドで HTML をパース・操作するための軽量ライブラリ
+- OpenAI. [Chat Completions API](https://platform.openai.com/docs/guides/text-generation) - Chat Completions API の公式ガイド（3-1）
+- OpenAI. [Structured Outputs](https://platform.openai.com/docs/guides/structured-outputs) - JSON モードおよび Structured Outputs の公式ドキュメント（3-3, 3-4）
+- OpenAI. [Function Calling](https://platform.openai.com/docs/guides/function-calling) - Function Calling の公式ドキュメント（3-6）
+- [openai (npm)](https://www.npmjs.com/package/openai) - OpenAI 公式 Node.js / TypeScript SDK（3-1, 3-3, 3-4, 3-6）
+- [Zod](https://zod.dev/) - TypeScript ファーストのスキーマバリデーションライブラリ（3-4, 3-8）
+- [Tavily](https://docs.tavily.com/) - AI エージェント向け Web 検索 API の公式ドキュメント（3-7）
+- [LangChain Tools](https://js.langchain.com/docs/how_to/custom_tools/) - LangChain カスタム Tool の公式ドキュメント（3-8）
+- [duck-duck-scrape](https://www.npmjs.com/package/duck-duck-scrape) - DuckDuckGo 検索結果を取得する npm パッケージ（3-9）
+- [cheerio](https://www.npmjs.com/package/cheerio) - サーバーサイドで HTML をパース・操作するための軽量ライブラリ（3-9 の補足）
