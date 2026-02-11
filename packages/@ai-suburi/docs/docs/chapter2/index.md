@@ -334,25 +334,325 @@ LLM に複雑なタスクを一度に処理させると、以下の問題が発�
 | **Tree of Thoughts（ToT）** | 複数の推論パスを並列に探索し、最も有望なものを選択する |
 | **ReAct** | Reasoning（推論）と Action（行動）を交互に繰り返し、観察結果を次の推論に反映する |
 
-この中でも **ReAct** は、ツール呼び出しと組み合わせることでエージェントの「自律的な行動」を実現するパターンとして最も実用的です。CoT は主にプロンプト設計のテクニックとして、ToT は探索的な問題解決に適していますが、外部ツールと連携して現実世界のタスクを遂行するエージェントには ReAct が最もフィットします。以降ではこの ReAct パターンを詳しく解説します。
+この中でも **ReAct** は、ツール呼び出しと組み合わせることでエージェントの「自律的な行動」を実現するパターンとして最も実用的です。CoT は主にプロンプト設計のテクニックとして、ToT は探索的な問題解決に適していますが、外部ツールと連携して現実世界のタスクを遂行するエージェントには ReAct が最もフィットします。
+
+以下では CoT、ToT、ReAct の順にそれぞれ詳しく解説していきます。
+
+### Chain of Thought（CoT）
+
+**Chain of Thought（CoT）** は、LLM に「ステップバイステップで考えて」と指示することで、いきなり最終回答を出すのではなく、**推論の過程を明示的に出力させる**プロンプティング手法です。
+
+#### CoT が解決する問題
+
+LLM は複雑な問題に対して、推論をショートカットして誤った回答を返すことがあります。例えば、数学の問題や論理的な判断が必要なタスクで、途中の計算過程を飛ばして間違った結論に至るケースです。
+
+CoT を導入すると、モデルが中間ステップを明示的に生成するため、以下のメリットが得られます。
+
+- **推論精度の向上** - 中間ステップを踏むことで、複雑な問題でも正確な回答に到達しやすくなる
+- **透明性の確保** - 思考過程が可視化されるため、回答の根拠を人間が確認・検証できる
+- **デバッグの容易さ** - 推論のどこで間違えたかを特定しやすくなる
+
+#### CoT の種類
+
+CoT にはいくつかのバリエーションがあります。
+
+| 種類 | 説明 |
+| --- | --- |
+| **Zero-shot CoT** | 「ステップバイステップで考えてください」と指示するだけで推論過程を引き出す。例示不要で手軽に使える |
+| **Few-shot CoT** | 推論過程を含んだ例（数ショット）をプロンプトに含め、同じ形式での推論を誘導する |
+
+#### 実装例：CoT によるプロンプティング
+
+以下は、Zero-shot CoT を使ってタスクの判断精度を向上させる例です。
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// CoT なし: いきなり回答を求める
+async function withoutCoT(question: string): Promise<string> {
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: question }],
+  });
+  return response.choices[0]?.message.content ?? "";
+}
+
+// CoT あり: ステップバイステップで考えさせる
+async function withCoT(question: string): Promise<string> {
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content:
+          "与えられた問題に対して、ステップバイステップで考えてから回答してください。",
+      },
+      { role: "user", content: question },
+    ],
+  });
+  return response.choices[0]?.message.content ?? "";
+}
+
+// 例: 論理的な推論が必要な問題
+const question =
+  "ある会社には300人の社員がいます。60%がリモートワーク、残りがオフィス勤務です。オフィス勤務の社員のうち25%が管理職です。管理職は何人ですか？";
+
+console.log("--- CoT なし ---");
+console.log(await withoutCoT(question));
+
+console.log("\n--- CoT あり ---");
+console.log(await withCoT(question));
+```
+
+#### 実装例：Few-shot CoT によるプロンプティング
+
+Few-shot CoT では、推論過程を含んだ具体例をプロンプトに埋め込みます。モデルは与えられた例の「思考パターン」を模倣して、新しい問題にも同じ形式で推論を展開します。
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+async function fewShotCoT(question: string): Promise<string> {
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: `以下の例を参考に、ステップバイステップで考えて回答してください。
+
+## 例1
+Q: 店に15個のりんごがありました。8個売れて、その後12個入荷しました。りんごは何個ありますか？
+A: ステップ1: 最初のりんごの数は15個です。
+ステップ2: 8個売れたので、15 - 8 = 7個になります。
+ステップ3: 12個入荷したので、7 + 12 = 19個になります。
+答え: 19個
+
+## 例2
+Q: ある学校に200人の生徒がいます。40%が男子で、男子の30%がサッカー部です。サッカー部の男子は何人ですか？
+A: ステップ1: 全生徒は200人です。
+ステップ2: 男子は200 × 0.4 = 80人です。
+ステップ3: サッカー部の男子は80 × 0.3 = 24人です。
+答え: 24人
+
+## 問題
+Q: ${question}
+A:`,
+      },
+    ],
+  });
+  return response.choices[0]?.message.content ?? "";
+}
+
+const question =
+  "ある図書館には500冊の本があります。30%が小説で、小説の20%が海外文学です。海外文学の小説は何冊ですか？";
+
+console.log(await fewShotCoT(question));
+```
+
+Zero-shot CoT は手軽に使える一方、Few-shot CoT は例示によって**推論のフォーマットや粒度をコントロールできる**のが強みです。出力形式を揃えたい場合や、特定のドメインでの推論パターンを誘導したい場合に有効です。
+
+#### CoT とエージェントの関係
+
+CoT はプロンプト設計の手法ですが、エージェントにおいても重要な役割を果たします。
+
+- **プランニングの基礎** - エージェントがタスクを分解する際に、CoT 的な推論が内部で行われている
+- **ReAct の Thought 部分** - ReAct パターンの「Thought（思考）」ステップは、まさに CoT による推論そのもの
+- **システムプロンプトへの組み込み** - エージェントのプロフィールに「段階的に考えてから行動してください」と指示することで、判断の質が向上する
+
+つまり、CoT は単独のプロンプトテクニックとしても有用ですが、エージェントの推論能力を支える**基盤的な手法**として位置づけられます。
+
+:::tip
+CoT は万能ではなく、単純なタスク（事実の検索や定型的な応答）では効果が薄い場合もあります。推論のステップが本質的に必要なタスク——数学的計算、論理的判断、複数条件の評価など——で最も威力を発揮します。
+:::
+
+### Tree of Thoughts（ToT）
+
+**Tree of Thoughts（ToT）** は、CoT を拡張した手法です。CoT が 1 本の推論パスを直線的にたどるのに対し、ToT は**複数の推論パスを木構造で並列に探索**し、各パスを評価して最も有望なものを選択します。
+
+#### CoT との違い
+
+CoT と ToT の違いを図で示します。
+
+```plaintext
+【CoT: 1本の直線的な推論】
+問題 → ステップ1 → ステップ2 → ステップ3 → 回答
+
+【ToT: 木構造による並列探索】
+           　┌→ ステップ1a → ステップ2a → 評価: ★★★ → 採用！
+問題 → 分解 → ├→ ステップ1b → ステップ2b → 評価: ★☆☆ → 棄却
+           　└→ ステップ1c → ステップ2c → 評価: ★★☆ → 棄却
+```
+
+CoT は一度推論を始めると最後まで直進しますが、ToT は**途中で「この方向は有望か？」を評価**し、見込みのないパスを早期に打ち切ることができます。
+
+| 特徴 | CoT | ToT |
+| --- | --- | --- |
+| **推論パス** | 1 本（直線的） | 複数（木構造） |
+| **途中評価** | なし | あり（各ステップで評価） |
+| **バックトラック** | できない | できる（別のパスに切り替え） |
+| **API コール数** | 少ない | 多い（パス数 × ステップ数） |
+| **適したタスク** | 段階的な計算、論理推論 | 創造的な問題解決、計画立案、パズル |
+
+#### ToT が有効なケース
+
+ToT は以下のような、**探索的なアプローチが必要なタスク**で特に有効です。
+
+- **複数の戦略を比較検討する必要がある問題** - 例: 旅行プランの立案、アーキテクチャ設計
+- **試行錯誤が必要なパズル的問題** - 例: 24 ゲーム（4 つの数字で 24 を作る）、クロスワード
+- **最初のアプローチが失敗する可能性が高い問題** - 例: 複雑な制約を満たす組み合わせの探索
+
+#### 実装例：ToT による問題解決
+
+以下は、ToT の考え方を LLM で簡易的に再現する例です。複数の候補を生成し、それぞれを評価して最良のものを選択します。
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// ステップ1: 複数の推論パス（候補）を生成する
+async function generateCandidates(
+  problem: string,
+  numCandidates: number,
+): Promise<string[]> {
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content: `あなたは問題解決の専門家です。与えられた問題に対して、${numCandidates}つの異なるアプローチを提案してください。それぞれのアプローチを --- で区切って出力してください。`,
+      },
+      { role: "user", content: problem },
+    ],
+  });
+  const content = response.choices[0]?.message.content ?? "";
+  return content.split("---").map((c) => c.trim()).filter(Boolean);
+}
+
+// ステップ2: 各候補を評価する
+async function evaluateCandidate(
+  problem: string,
+  candidate: string,
+): Promise<{ score: number; reasoning: string }> {
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
+    temperature: 0,
+    messages: [
+      {
+        role: "system",
+        content:
+          "あなたは提案を評価する審査員です。問題に対するアプローチを1〜10で評価してください。",
+      },
+      {
+        role: "user",
+        content: `## 問題\n${problem}\n\n## 提案されたアプローチ\n${candidate}\n\nJSON形式で回答してください: { "score": 数値, "reasoning": "評価理由" }`,
+      },
+    ],
+    response_format: { type: "json_object" },
+  });
+  return JSON.parse(response.choices[0]?.message.content ?? "{}");
+}
+
+// ステップ3: 最良の候補を選択して最終回答を生成する
+async function treeOfThoughts(problem: string): Promise<string> {
+  console.log("候補を生成中...");
+  const candidates = await generateCandidates(problem, 3);
+
+  console.log(`${candidates.length}つの候補を評価中...`);
+  const evaluations = await Promise.all(
+    candidates.map(async (candidate, i) => {
+      const evaluation = await evaluateCandidate(problem, candidate);
+      console.log(`候補${i + 1}: スコア ${evaluation.score}/10`);
+      return { candidate, ...evaluation };
+    }),
+  );
+
+  // 最高スコアの候補を選択
+  const best = evaluations.reduce((a, b) => (a.score > b.score ? a : b));
+  console.log(`\n最良の候補を選択（スコア: ${best.score}/10）`);
+
+  return best.candidate;
+}
+
+const problem =
+  "小規模なチーム（5人）でWebアプリケーションを3ヶ月で開発する必要があります。技術スタックの選定方針を提案してください。";
+
+console.log(await treeOfThoughts(problem));
+```
+
+:::tip
+ToT は強力ですが、**候補の生成と評価に多くの API コールが必要**になるため、レイテンシとコストが増加します。すべての問題に ToT を適用するのではなく、CoT で十分な場合はシンプルに CoT を使い、探索的なアプローチが必要な場合にのみ ToT を検討するのが実践的です。
+:::
 
 ### ReAct パターン
 
-ReAct は、エージェントの実装で最も広く使われるパターンの一つです。
-**Thought（思考）→ Action（行動）→ Observation（観察）** のサイクルを繰り返すことで、エージェントが段階的にタスクを遂行します。
+**ReAct（Reasoning + Acting）** は、LLM の「推論」と「行動」を交互に繰り返すことで、エージェントが自律的にタスクを遂行するパターンです。エージェント実装において最も広く使われる設計パターンの一つであり、前述の CoT や ToT が「考え方」を改善する手法だったのに対し、ReAct は**「考えること」と「実際に行動すること」を組み合わせる**点が大きく異なります。
 
-```plaintext
-Thought: ユーザーは東京の明日の天気を知りたい。天気APIを呼び出す必要がある。
-Action:  get_weather({ location: "Tokyo", date: "tomorrow" })
-Observation: 晴れ、最高気温28度、最低気温20度、降水確率10%
+| 手法 | 得意なこと | 限界 |
+| --- | --- | --- |
+| **CoT** | 推論精度の向上 | 外部情報にアクセスできない（思考だけで完結する） |
+| **ToT** | 複数の方針の比較検討 | 候補の評価に留まり、外部にアクションを起こせない |
+| **ReAct** | 推論に基づく外部ツール呼び出しとその結果の活用 | ループの制御やエラーハンドリングの設計が必要 |
 
-Thought: 天気情報が取得できた。ユーザーにわかりやすく伝えよう。
-Action:  ユーザーに応答を返す
+つまり、ReAct は CoT の推論力を活かしつつ、ツール呼び出しという**現実世界への作用**を加えたパターンです。
+
+#### Thought → Action → Observation サイクル
+
+ReAct の核心は、**Thought（思考）→ Action（行動）→ Observation（観察）** の 3 ステップを繰り返すサイクルです。
+
+```mermaid
+graph LR
+    T["🧠 Thought<br/>（何をすべきか推論する）"]
+    A["⚡ Action<br/>（ツールを実行する）"]
+    O["👀 Observation<br/>（結果を確認する）"]
+
+    T --> A --> O -- "結果を踏まえて次の Thought へ" --> T
 ```
 
-### 実装例：ReAct パターンによるエージェントループ
+具体的な例で見てみましょう。ユーザーが「来週の東京出張に傘は必要？」と質問した場合、エージェントは以下のように動作します。
 
-ReAct パターンの核となるのは、LLM の応答に基づいてツール呼び出しと応答生成を繰り返す**エージェントループ**です。
+```plaintext
+Thought 1: ユーザーは来週の東京出張に傘が必要か知りたい。
+           まず来週の東京の天気予報を確認する必要がある。
+Action 1:  get_weather({ location: "東京", date: "next_week" })
+Observation 1: 月〜水: 晴れ（降水確率10%）、木〜金: 曇りのち雨（降水確率70%）
+
+Thought 2: 週の後半に雨の予報が出ている。出張の日程を確認して、
+           雨の日と重なるか判断したい。
+Action 2:  search_calendar({ query: "東京出張" })
+Observation 2: 東京出張: 木曜〜金曜
+
+Thought 3: 出張は木〜金で、ちょうど雨予報の日と重なっている。
+           傘が必要だとユーザーに伝えよう。
+Action 3:  ユーザーに最終回答を返す
+→ 「来週の東京出張（木〜金）は曇りのち雨の予報で、降水確率70%です。
+    折りたたみ傘を持っていくのがおすすめです！」
+```
+
+このように、ReAct では各ステップで**推論（Thought）に基づいて次のアクションを決定**し、その**結果（Observation）を次の推論に反映**します。1 回の API 呼び出しで完結するのではなく、必要な情報が揃うまでサイクルを繰り返すのがポイントです。
+
+#### エージェントループの仕組み
+
+ReAct パターンをコードで実現する際の中核が**エージェントループ**です。以下のフローチャートに示すように、LLM がツール呼び出しを要求しなくなるまでループを繰り返します。
+
+```mermaid
+flowchart TD
+    Start([開始]) --> Input["ユーザーの入力を messages に追加"]
+    Input --> LLM["LLM に messages を送信"]
+    LLM --> Check{"ツール呼び出しが含まれているか？"}
+    Check -- "YES" --> Exec["ツールを実行し、結果を messages に追加"]
+    Exec --> LLM
+    Check -- "NO" --> End(["LLM の応答テキストを最終回答として返す"])
+```
+
+ループ内で `messages` 配列にやりとりを蓄積していくことで、LLM は過去の Thought・Action・Observation の流れを踏まえた推論が可能になります。これはまさに前述の**短期メモリ**の仕組みを活用しています。
+
+#### 実装例：ReAct パターンによるエージェントループ
+
+以下は、ReAct パターンのエージェントループを TypeScript で実装した例です。
 
 ```typescript
 import OpenAI from "openai";
@@ -389,6 +689,7 @@ async function agentLoop(userMessage: string): Promise<string> {
     });
 
     const message = response.choices[0]!.message;
+    // LLM の応答（Thought + Action）を履歴に追加
     messages.push(message);
 
     // ツール呼び出しがなければ、最終応答として返す
@@ -396,7 +697,7 @@ async function agentLoop(userMessage: string): Promise<string> {
       return message.content ?? "";
     }
 
-    // ツール呼び出しを実行し、結果をメッセージに追加
+    // ツールを実行し、結果（Observation）をメッセージに追加
     for (const toolCall of message.tool_calls) {
       const args = JSON.parse(toolCall.function.arguments);
       const result = executeTool(toolCall.function.name, args);
@@ -406,29 +707,68 @@ async function agentLoop(userMessage: string): Promise<string> {
         content: result,
       });
     }
+    // → ループの先頭に戻り、Observation を踏まえた次の Thought へ
   }
 
   return "最大反復回数に達しました。";
 }
 ```
 
+`MAX_ITERATIONS` による上限設定は重要です。ツール呼び出しが無限に続くことを防ぎ、予期しないコストの増大やエージェントの暴走を回避します。
+
+:::caution
+ReAct ループの各イテレーションで LLM API コールが発生します。ツール呼び出しの回数が増えるほどレイテンシとコストが増加するため、**ツール設計の段階で 1 回の呼び出しで十分な情報を返せるようにする**ことが実践上のポイントです。
+:::
+
 ### リフレクション（振り返り）
 
-プランニングにはもう一つ重要な要素として**リフレクション**があります。
-エージェントが自身の行動結果を評価し、計画を修正する仕組みです。
+**リフレクション**は、エージェントが自身の行動結果を振り返り、**「うまくいったか？改善すべき点はあるか？」を自己評価**して次のアクションに活かす仕組みです。
 
-| 手法 | 説明 |
-| --- | --- |
-| **自己評価（Self-Evaluation）** | LLM に自分の出力を評価させ、不十分であれば再生成する |
-| **Reflexion** | 過去の失敗を言語的フィードバックとしてメモリに保存し、次の試行に活かす |
-| **外部フィードバック** | ツールの実行結果やユーザーからのフィードバックを次の計画に反映する |
+人間も仕事の後に「あの対応は良かったか？次はこうしよう」と振り返ることで成長します。エージェントにも同様の仕組みを組み込むことで、出力品質を向上させたり、同じ失敗を繰り返さないようにすることができます。
+
+#### なぜリフレクションが必要なのか？
+
+ReAct パターンでエージェントはツールを使って行動できるようになりますが、それだけでは以下の問題が残ります。
+
+- **出力品質のばらつき** - LLM の応答が常に最適とは限らない。不正確な情報や不十分な回答が返る場合がある
+- **同じ失敗の繰り返し** - 過去に失敗したアプローチを何度も試してしまう
+- **改善の機会の見逃し** - より良い回答ができたはずなのに、最初の出力をそのまま返してしまう
+
+リフレクションを導入することで、エージェントは自身の出力を**批判的に評価**し、必要に応じて修正・再生成を行えるようになります。
+
+#### リフレクションの流れ
+
+リフレクションは、ReAct のエージェントループに「評価 → 修正」のステップを追加したものと捉えることができます。
+
+```mermaid
+flowchart TD
+    Task["タスクを実行し、結果を生成"] --> Eval{"結果を自己評価"}
+    Eval -- "合格" --> Output(["最終回答として出力"])
+    Eval -- "不合格" --> Feedback["改善点をフィードバックとして整理"]
+    Feedback --> Retry["フィードバックを踏まえて再実行"]
+    Retry --> Eval
+```
+
+#### リフレクションの手法
+
+リフレクションにはいくつかの代表的な手法があります。
+
+| 手法 | 説明 | ユースケース |
+| --- | --- | --- |
+| **自己評価（Self-Evaluation）** | LLM に自分の出力を評価させ、不十分であれば再生成する | 単発の出力品質を向上させたい場合 |
+| **Reflexion** | 過去の失敗を言語的フィードバックとしてメモリに保存し、次の試行に活かす | 複数回の試行を通じて段階的に改善したい場合 |
+| **外部フィードバック** | ツールの実行結果やユーザーからのフィードバックを次の計画に反映する | テスト結果やユーザーレビューを基に修正する場合 |
+
+#### 実装例：自己評価による出力品質の向上
+
+以下は、エージェントの出力を自己評価し、基準を満たさない場合にフィードバックを踏まえて再生成するパターンです。
 
 ```typescript
 import OpenAI from "openai";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// 自己評価の簡易実装例
+// 自己評価: タスクに対する回答の品質を判定する
 async function selfEvaluate(
   task: string,
   result: string,
@@ -465,10 +805,131 @@ JSON形式で回答してください: { "isAcceptable": boolean, "feedback": "�
 
   return JSON.parse(response.choices[0]?.message.content ?? "{}");
 }
+
+// リフレクション付きのタスク実行
+async function executeWithReflection(
+  task: string,
+  maxRetries: number = 3,
+): Promise<string> {
+  let result = "";
+  let feedback = "";
+
+  for (let i = 0; i < maxRetries; i++) {
+    // タスクを実行（前回のフィードバックがあれば含める）
+    const prompt =
+      feedback !== ""
+        ? `${task}\n\n## 前回のフィードバック（これを踏まえて改善してください）\n${feedback}`
+        : task;
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+    });
+    result = response.choices[0]?.message.content ?? "";
+
+    // 自己評価
+    const evaluation = await selfEvaluate(task, result);
+    console.log(`試行 ${i + 1}: ${evaluation.isAcceptable ? "合格" : "不合格"}`);
+
+    if (evaluation.isAcceptable) {
+      return result; // 品質基準を満たしたので返す
+    }
+
+    // フィードバックを次の試行に引き継ぐ
+    feedback = evaluation.feedback;
+    console.log(`フィードバック: ${feedback}`);
+  }
+
+  // 最大リトライ回数に達した場合は最後の結果を返す
+  return result;
+}
 ```
 
+#### 実装例：Reflexion パターンによる経験の蓄積
+
+Reflexion は自己評価をさらに発展させた手法です。過去の試行から得た教訓を**言語的なフィードバック（メモ）としてメモリに蓄積**し、次の試行時にそのメモを参照することで同じ失敗を避けます。
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// 過去の試行から得た教訓を蓄積するメモリ
+const reflexionMemory: string[] = [];
+
+// 失敗から教訓を抽出する
+async function extractLesson(
+  task: string,
+  failedResult: string,
+  feedback: string,
+): Promise<string> {
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: `以下の失敗から、次回同様のタスクで活かせる教訓を1〜2文で簡潔にまとめてください。
+
+## タスク
+${task}
+
+## 失敗した回答
+${failedResult}
+
+## 指摘された問題点
+${feedback}`,
+      },
+    ],
+  });
+  return response.choices[0]?.message.content ?? "";
+}
+
+// Reflexion パターンによるタスク実行
+async function executeWithReflexion(
+  task: string,
+  maxRetries: number = 3,
+): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    // 過去の教訓をプロンプトに含める
+    const lessonsContext =
+      reflexionMemory.length > 0
+        ? `\n\n## 過去の教訓（同じ失敗を繰り返さないこと）\n${reflexionMemory.map((l, j) => `${j + 1}. ${l}`).join("\n")}`
+        : "";
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: task + lessonsContext }],
+    });
+    const result = response.choices[0]?.message.content ?? "";
+
+    // 自己評価
+    const evaluation = await selfEvaluate(task, result);
+    if (evaluation.isAcceptable) {
+      return result;
+    }
+
+    // 失敗した場合、教訓をメモリに蓄積
+    const lesson = await extractLesson(task, result, evaluation.feedback);
+    reflexionMemory.push(lesson);
+    console.log(`教訓を蓄積: ${lesson}`);
+  }
+
+  return "最大試行回数に達しました。";
+}
+```
+
+自己評価が「その場限りのやり直し」であるのに対し、Reflexion は**教訓をメモリに蓄積する**ことで、異なるタスクにも過去の経験を活かせる点が特徴です。これは前述の**長期メモリ**の概念と直接つながっています。
+
+#### リフレクションの使い分け
+
+| 手法 | コスト | 適した場面 |
+| --- | --- | --- |
+| **自己評価** | 低（評価 1 回 + 再生成） | 出力の正確さを手軽に向上させたい場合 |
+| **Reflexion** | 中（評価 + 教訓抽出 + メモリ管理） | 同じ種類のタスクを繰り返し実行する場合 |
+| **外部フィードバック** | 状況による | テスト実行や人間のレビューを組み込む場合 |
+
 :::tip
-プランニングの複雑さは、タスクの性質に応じて調整すべきです。単純な質問応答には ReAct のようなループは不要であり、逆に複数のツールを組み合わせる必要があるタスクにはエージェントループが不可欠です。**まずはシンプルに始めて、必要に応じて複雑さを加える**のが実践的なアプローチです。
+リフレクションはすべてのタスクに必要なわけではありません。単純な質問応答では過剰な仕組みになります。**出力品質が特に重要なタスク**（コード生成、レポート作成、意思決定支援など）や、**同じ種類のタスクを繰り返し実行するケース**で導入を検討するのが実践的です。
 :::
 
 ---
