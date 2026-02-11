@@ -113,3 +113,23 @@
 [data-theme="dark"] .featureDescription {
   color: #94a3b8;
 }
+
+@media screen and (max-width: 996px) {
+  .sectionTitle {
+    font-size: 1.5rem;
+  }
+
+  .sectionSubtitle {
+    font-size: 1rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .sectionTitle {
+    font-size: 1.3rem;
+  }
+
+  .sectionSubtitle {
+    font-size: 0.9rem;
+  }
+}
