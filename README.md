@@ -67,9 +67,42 @@ source ~/.zshrc
 プロジェクトルートに `.envrc` ファイルを作成し、必要な環境変数を記述します。
 
 ```zsh
-cp .envrc.example .envrc  # テンプレートがある場合
+cp .envrc.sample .envrc
 direnv allow
 ```
+
+`.envrc` ファイルには以下の環境変数を設定します。
+
+```zsh
+export OPENAI_API_KEY="your-key"
+export TAVILY_API_KEY="your-key"
+```
+
+#### APIキーの取得方法
+
+##### OPENAI_API_KEY
+
+OpenAI の API キーは以下の手順で取得できます。
+
+1. [OpenAI Platform](https://platform.openai.com/) にアクセスし、アカウントを作成またはログイン
+2. 右上のアイコンから **Dashboard** に移動
+3. 左メニューの **API keys** をクリック
+4. **Create new secret key** をクリックしてキーを生成
+5. 生成されたキー（`sk-proj-...` の形式）をコピーして `.envrc` の `OPENAI_API_KEY` に設定
+
+> ⚠️ API キーは作成時に一度しか表示されません。必ずコピーして安全な場所に保管してください。
+>
+> ⚠️ APIの利用にはクレジットの購入（有料）が必要です。[Billing](https://platform.openai.com/settings/organization/billing/overview) ページからクレジットを追加してください。
+
+##### TAVILY_API_KEY
+
+Tavily は AI エージェント向けの Web 検索 API です。以下の手順でキーを取得できます。
+
+1. [Tavily](https://tavily.com/) にアクセスし、アカウントを作成またはログイン
+2. ログイン後、ダッシュボードに API キーが表示される
+3. API キー（`tvly-...` の形式）をコピーして `.envrc` の `TAVILY_API_KEY` に設定
+
+> ℹ️ 無料プラン（Free）では月 1,000 リクエストまで利用可能です。
 
 ### pnpmのインストール
 
