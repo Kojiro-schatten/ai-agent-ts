@@ -2746,6 +2746,154 @@ return {
 一方、`reducer` を指定しないフィールド（`output` や `iteration`）は、ノードが返した値で**上書き**されます。「蓄積したいデータには `reducer`、最新値だけ保持したいデータには `reducer` なし」と使い分けるのがポイントです。
 :::
 
+## コラム: LLM API を統一的に扱うためのライブラリ比較
+
+この章では OpenAI・Gemini・Claude の 3 つのプロバイダーを個別に実装してきました。各プロバイダーの SDK はインポートパス・レスポンス構造・エラーハンドリングがそれぞれ異なるため、プロバイダーごとに個別のコードを書く必要がありました。しかし、実際のプロダクト開発では「コスト比較のためにモデルを差し替えたい」「特定のプロバイダーが障害時に別のプロバイダーへフォールバックしたい」といったニーズが出てきます。
+
+ここでは、複数の LLM API を統一的に扱うための代表的なライブラリとして **Vercel AI SDK** と **LangChain** を比較します。なお、LangChain については 3-8・3-12・3-13 ですでに実装例を紹介しているため、ここでは Vercel AI SDK との設計思想の違いに焦点を当てます。
+
+### 設計思想の違い
+
+| | **Vercel AI SDK** | **LangChain** |
+| --- | --- | --- |
+| **コンセプト** | LLM 呼び出しの**統一インターフェース** | AI アプリ開発の**フルスタックフレームワーク** |
+| **スコープ** | テキスト生成・ストリーミング・ツール呼び出し・構造化出力 | プロンプト管理・メモリ・RAG・ベクトル DB 連携・エージェント・ワークフロー（LangGraph） |
+
+2 つのライブラリはカバーする範囲が大きく異なります。以下の図は、それぞれが担う**レイヤー**のイメージです。
+
+```mermaid
+flowchart TB
+  subgraph vercel["Vercel AI SDK"]
+    direction LR
+    v1["テキスト生成<br/>generateText / streamText"]
+    v2["構造化出力<br/>generateObject"]
+    v3["ツール呼び出し<br/>maxSteps"]
+    v4["プロバイダー抽象化<br/>openai / anthropic / google"]
+    v1 ~~~ v2 ~~~ v3 ~~~ v4
+  end
+
+  subgraph langchain["LangChain / LangGraph"]
+    direction LR
+    l1["エージェント<br/>LangGraph"]
+    l2["RAG<br/>Retriever / VectorStore"]
+    l3["プロンプト管理<br/>ChatPromptTemplate"]
+    l4["チェーン合成<br/>LCEL / RunnableSequence"]
+    l5["LLM 呼び出し<br/>ChatOpenAI / ChatAnthropic"]
+    l1 ~~~ l2 ~~~ l3 ~~~ l4 ~~~ l5
+  end
+
+  vercel ~~~ langchain
+
+  style vercel fill:#e8f4fd,stroke:#0070f3,color:#0070f3
+  style langchain fill:#f0fdf4,stroke:#16a34a,color:#16a34a
+  style v1 fill:#fff,stroke:#0070f3
+  style v2 fill:#fff,stroke:#0070f3
+  style v3 fill:#fff,stroke:#0070f3
+  style v4 fill:#fff,stroke:#0070f3
+  style l1 fill:#fff,stroke:#16a34a
+  style l2 fill:#fff,stroke:#16a34a
+  style l3 fill:#fff,stroke:#16a34a
+  style l4 fill:#fff,stroke:#16a34a
+  style l5 fill:#fff,stroke:#16a34a
+```
+
+**Vercel AI SDK** は「LLM の呼び出し部分だけを薄くラップする」ことに特化しています。TypeScript の型推論と相性がよく、学習コストが低いのが特徴です。一方 **LangChain** は、プロンプトテンプレート・メモリ・RAG パイプライン・エージェントなど、AI アプリ開発に必要な部品を幅広くカバーするフレームワークです。
+
+### コードの比較
+
+同じ「LLM にテキストを生成させる」処理を、それぞれのライブラリでどう書くか見比べてみます。
+
+#### Vercel AI SDK — 関数ベースのシンプルな API
+
+```typescript
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { anthropic } from '@ai-sdk/anthropic';
+import { google } from '@ai-sdk/google';
+
+// プロバイダーを変えるだけで同じコードが動く
+const { text } = await generateText({
+  model: openai('gpt-4o'),
+  // model: anthropic('claude-sonnet-4-5-20250929'),
+  // model: google('gemini-2.5-flash'),
+  prompt: 'TypeScriptの魅力を教えて',
+});
+```
+
+Vercel AI SDK は用途ごとに関数が用意されています。
+
+- `generateText` — テキスト生成（非ストリーミング）
+- `streamText` — テキスト生成（ストリーミング）
+- `generateObject` — Zod スキーマに準拠した構造化出力（3-4 の Structured Outputs に相当）
+
+いずれの関数も `model` 引数を差し替えるだけでプロバイダーを切り替えられます。プロバイダーごとの SDK（`@ai-sdk/openai` など）が差異を吸収するため、呼び出し側のコードを変更する必要がありません。
+
+#### LangChain — Chain / Runnable による合成
+
+```typescript
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { StringOutputParser } from '@langchain/core/output_parsers';
+import { RunnableSequence } from '@langchain/core/runnables';
+
+const chain = RunnableSequence.from([
+  ChatPromptTemplate.fromMessages([
+    ['system', 'あなたは{role}です'],
+    ['human', '{input}'],
+  ]),
+  new ChatOpenAI({ model: 'gpt-4o' }),
+  new StringOutputParser(),
+]);
+
+const result = await chain.invoke({ role: 'エンジニア', input: 'こんにちは' });
+```
+
+LangChain では `RunnableSequence`（3-12 の LCEL で紹介）を使い、「プロンプトテンプレート → LLM 呼び出し → 出力パーサー」を**パイプラインとして合成**します。各ステップが独立した `Runnable` オブジェクトなので、途中のステップを差し替えたり、分岐を追加したりしやすい設計です。学習コストはやや高いですが、複雑な処理フローを宣言的に記述できる点が強みです。
+
+### エージェント開発における違い
+
+3-6 で学んだ Function Calling のように、エージェントが外部ツールを呼び出す仕組みも、両ライブラリでアプローチが異なります。
+
+**Vercel AI SDK** はシンプルなツールループを `maxSteps` パラメータだけで実現できます。LLM がツール呼び出しを返した場合、SDK が自動的にツールを実行し、結果を LLM に返すループを最大 `maxSteps` 回まで繰り返します。
+
+```typescript
+const { text } = await generateText({
+  model: openai('gpt-4o'),
+  tools: { weather: weatherTool },
+  maxSteps: 5,
+  prompt: '東京の天気を教えて',
+});
+```
+
+一方 **LangGraph**（LangChain エコシステム）では、3-13 で実装した Plan-Generate-Reflect パターンのように、分岐・条件付きループ・並列実行などの複雑な制御フローをグラフとして定義できます。さらに、Human-in-the-loop（重要な判断の前に人間の承認を挟む仕組み）にも対応しており、本番運用を見据えたエージェント開発に適しています。
+
+### 比較まとめ
+
+ここまでの内容を整理します。プロジェクトの要件に応じて適切なライブラリを選択してください。
+
+| 観点 | **Vercel AI SDK** | **LangChain** |
+| --- | --- | --- |
+| 学習コスト | 低い（関数を呼ぶだけ） | やや高い（独自概念の理解が必要） |
+| 抽象化の厚さ | 薄い（素の API に近い） | 厚い（Chain / Runnable / Parser 等） |
+| TypeScript 型安全性 | 強い（ジェネリクスで型推論が効く） | 普通 |
+| ストリーミング対応 | `streamText` で簡潔に実現 | `stream()` メソッドで対応 |
+| RAG パイプライン構築 | 自前で組む | Retriever・VectorStore 等の部品が揃っている |
+| 複雑なエージェント | シンプルなものに向く | LangGraph で高度な制御が可能 |
+| フロントエンド連携 | Next.js / React との統合が強力 | 特化した統合はなし |
+
+:::caution ライブラリ選定時の注意点
+どちらのライブラリも活発に開発されており、API の破壊的変更が入ることがあります。特に LangChain はバージョンアップ時にインポートパスの変更が発生しやすいため、公式のマイグレーションガイドを確認してください。
+:::
+
+:::tip 使い分けの目安
+
+- **LLM API 呼び出しを統一したいだけ** → Vercel AI SDK がシンプルでおすすめ
+- **RAG やベクトル DB など多くの部品を組み合わせたい** → LangChain のエコシステムが便利
+- **複雑なエージェントワークフローを構築したい** → LangGraph（LangChain 拡張）が強力
+- **両方併用する** → Vercel AI SDK で基本の LLM 呼び出しを統一しつつ、必要な部分だけ LangChain / LangGraph を使うことも可能
+
+:::
+
 ## まとめ
 
 この章では、AI エージェントを構築するために必要な LLM API の基本操作を、OpenAI を中心に Google Gemini・Anthropic Claude も交えながら段階的に学びました。
@@ -2786,3 +2934,4 @@ return {
 - [LangChain LCEL](https://js.langchain.com/docs/concepts/lcel/) - LangChain Expression Language（チェーン合成）の公式ドキュメント（3-12）
 - [LangGraph.js](https://langchain-ai.github.io/langgraphjs/) - LangGraph の公式ドキュメント（3-13）
 - [@langchain/langgraph (npm)](https://www.npmjs.com/package/@langchain/langgraph) - LangGraph の npm パッケージ（3-13）
+- [Vercel AI SDK](https://ai-sdk.dev/) - 複数の LLM プロバイダーを統一的に扱える TypeScript SDK の公式ドキュメント（コラム）
