@@ -5,12 +5,13 @@ import Database from 'better-sqlite3';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // デフォルトのデータベースパス
-const DEFAULT_DB_PATH = path.resolve(
-  __dirname,
-  '../data/xyz-manual-search.db',
-);
+const DEFAULT_DB_PATH = path.resolve(__dirname, './data/xyz-manual-search.db');
 
-// データベースを開き、FTS5テーブルを初期化する
+/**
+ * SQLiteデータベースを開き、テーブルとFTS5インデックスを初期化する
+ * @param dbPath - データベースファイルのパス
+ * @returns 初期化済みのデータベースインスタンス
+ */
 export function openDatabase(
   dbPath: string = DEFAULT_DB_PATH,
 ): Database.Database {
@@ -60,6 +61,16 @@ export function openDatabase(
         VALUES('delete', old.id, old.content);
       INSERT INTO documents_fts(rowid, content) VALUES (new.id, new.content);
     END
+  `);
+
+  // QAドキュメント格納テーブル（ベクトル検索用）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS qa_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      embedding BLOB NOT NULL
+    )
   `);
 
   return db;

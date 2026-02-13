@@ -2,12 +2,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PDFParse } from 'pdf-parse';
-import { openDatabase } from './db.js';
+import { openDatabase } from '../db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, '../data');
 
-// テキストを分割する関数（Python の RecursiveCharacterTextSplitter を再現）
+/**
+ * テキストをチャンク分割する（Python の RecursiveCharacterTextSplitter を再現）
+ * @param text - 分割対象のテキスト
+ * @param chunkSize - 1チャンクの最大文字数
+ * @param chunkOverlap - 前のチャンクとの重複文字数
+ * @param separators - 分割に使うセパレータの優先順位
+ * @returns 分割されたテキストチャンクの配列
+ */
 function splitText(
   text: string,
   chunkSize = 300,
@@ -52,7 +59,9 @@ function splitText(
   return chunks.filter((c) => c.length > 0);
 }
 
-// PDFファイルを読み込み、テキストをチャンク分割してDBに投入する
+/**
+ * PDFファイルを読み込み、テキストをチャンク分割してDBに投入する
+ */
 export async function createIndex(): Promise<void> {
   const db = openDatabase();
 

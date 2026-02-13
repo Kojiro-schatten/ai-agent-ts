@@ -1,7 +1,7 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod/v4';
+import { openDatabase } from '../db.js';
 import { createIndex } from './create-index.js';
-import { openDatabase } from './db.js';
 
 // 検索結果の最大取得数
 const MAX_SEARCH_RESULTS = 3;
