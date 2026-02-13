@@ -9,17 +9,20 @@
 | [add-doc](#add-doc) | `/add-doc packages/@ai-suburi/core/chapter3/test3-9-duckduckgo-search.ts` | ソースコードからドキュメントセクションを自動生成・追記 |
 | [review-doc](#review-doc) | `/review-doc chapter3` | ドキュメントの正確性・整合性チェック＆修正 |
 | [brushup-doc](#brushup-doc) | `/brushup-doc chapter3` | ドキュメントの文章品質向上＆内容充実化 |
+| [cleanup-code](#cleanup-code) | `/cleanup-code packages/@ai-suburi/core/chapter3/test3-12.ts` | TypeScriptコードの型エラー修正・非推奨API置換・未使用import削除・JSDoc追加 |
 
 ## 推奨ワークフロー
 
 ```
 1. ソースコードを新規作成
        ↓
+  (optional) /cleanup-code で型エラー修正・import整理・JSDoc追加
+       ↓
 2. /add-doc でドキュメントセクションを自動生成
        ↓
-3. /review-doc でコードとの整合性をチェック
+  (optional) /review-doc でコードとの整合性をチェック
        ↓
-4. /brushup-doc で文章品質・内容を仕上げ
+3. /brushup-doc で文章品質・内容を仕上げ
 ```
 
 ---
@@ -109,3 +112,23 @@
 ### 出力
 
 概念の網羅性・図解の改善・文章品質の改善・内容の充実化・参考文献の追加をカテゴリ別にサマリーとして出力する。
+
+---
+
+## cleanup-code
+
+TypeScript コードの型エラー修正・未使用 import 削除・JSDoc 追加を行うスキル。
+
+- **引数**: TypeScript ファイルのパス
+- **使用ツール**: Read, Edit, Glob, Grep, Bash
+
+### 整理内容
+
+1. `tsc --noEmit` で型エラーを検出・修正
+2. `@deprecated` な API を検出・代替 API に置換
+3. 未使用の import を検出・削除
+4. JSDoc がない関数に JSDoc を追加
+
+### 整理結果の出力
+
+型エラー修正・未使用 import 削除・JSDoc 追加の結果をカテゴリ別にサマリーとして出力する。

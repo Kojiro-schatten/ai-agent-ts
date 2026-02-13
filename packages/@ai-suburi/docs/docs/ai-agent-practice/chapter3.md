@@ -17,6 +17,7 @@ sidebar_position: 2
 - **DuckDuckGo** を使った無料の Web 検索とページ取得
 - **Text-to-SQL** による自然言語からの SQL クエリ生成と検索
 - **LangChain** による Text-to-SQL の簡素化（`ChatPromptTemplate` + `withStructuredOutput`）
+- **LangGraph** による有向グラフワークフローの構築（Plan-Generate-Reflect パターン）
 
 :::
 
@@ -35,6 +36,7 @@ flowchart LR
     D --> F["<b>3-8</b><br/>LangChain Tool<br/>（宣言的なツール定義）"]
     C --> G["<b>3-11</b><br/>Text-to-SQL<br/>（自然言語 DB 検索）"]
     G --> H["<b>3-12</b><br/>Text-to-SQL<br/>（LangChain 版）"]
+    F --> I["<b>3-13</b><br/>LangGraph<br/>（ワークフロー構築）"]
 
     style A fill:#e3f2fd
     style B fill:#e3f2fd
@@ -44,6 +46,7 @@ flowchart LR
     style F fill:#fff3e0
     style G fill:#fff3e0
     style H fill:#e8f5e9
+    style I fill:#e8f5e9
 ```
 
 :::info 前提条件
@@ -52,6 +55,7 @@ flowchart LR
 - 3-7 のみ、環境変数 `TAVILY_API_KEY` に Tavily の API キーが設定されていること
 - 3-11 のみ、`better-sqlite3` パッケージがインストールされていること（`pnpm install` で自動インストール）
 - 3-12 のみ、`@langchain/openai` パッケージが追加で必要（`pnpm install` で自動インストール）
+- 3-13 のみ、`@langchain/langgraph` および `@langchain/openai` パッケージが追加で必要（`pnpm install` で自動インストール）
 
 :::
 
@@ -88,7 +92,7 @@ AI エージェントを構築する際、すべての対話はこの API を通
 :::
 
 ```typescript title="chapter3/test3-1-chat-completions-api.ts"
-import OpenAI from "openai";
+import OpenAI from 'openai';
 
 // クライアントを定義
 const client = new OpenAI({
@@ -98,25 +102,25 @@ const client = new OpenAI({
 // Chat Completion APIの呼び出し例
 async function main() {
   const response = await client.chat.completions.create({
-    model: "gpt-4o",
+    model: 'gpt-4o',
     messages: [
-      { role: "user", content: "こんにちは、今日はどんな天気ですか？" },
+      { role: 'user', content: 'こんにちは、今日はどんな天気ですか？' },
     ],
   });
 
   // 応答内容を出力
-  console.log("Response:", response.choices[0]?.message.content, "\n");
+  console.log('Response:', response.choices[0]?.message.content, '\n');
 
   // 消費されたトークン数の表示
   const tokensUsed = response.usage;
-  console.log("Prompt Tokens:", tokensUsed?.prompt_tokens);
-  console.log("Completion Tokens:", tokensUsed?.completion_tokens);
-  console.log("Total Tokens:", tokensUsed?.total_tokens);
+  console.log('Prompt Tokens:', tokensUsed?.prompt_tokens);
+  console.log('Completion Tokens:', tokensUsed?.completion_tokens);
+  console.log('Total Tokens:', tokensUsed?.total_tokens);
   console.log(
-    "Completion_tokens_details:",
+    'Completion_tokens_details:',
     tokensUsed?.completion_tokens_details,
   );
-  console.log("Prompt_tokens_details:", tokensUsed?.prompt_tokens_details);
+  console.log('Prompt_tokens_details:', tokensUsed?.prompt_tokens_details);
 }
 
 main();
@@ -158,7 +162,7 @@ JSON モードを使用する際は、システムメッセージで「JSON を�
 :::
 
 ```typescript title="chapter3/test3-3-json-outputs.ts"
-import OpenAI from "openai";
+import OpenAI from 'openai';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -166,18 +170,18 @@ const client = new OpenAI({
 
 async function main() {
   const response = await client.chat.completions.create({
-    model: "gpt-4o",
-    response_format: { type: "json_object" },
+    model: 'gpt-4o',
+    response_format: { type: 'json_object' },
     messages: [
       {
-        role: "system",
+        role: 'system',
         content:
-          "あなたは JSON を出力するように設計された便利なアシスタントです。",
+          'あなたは JSON を出力するように設計された便利なアシスタントです。',
       },
-      { role: "assistant", content: '{"winner": "String"}' },
+      { role: 'assistant', content: '{"winner": "String"}' },
       {
-        role: "user",
-        content: "2020 年のワールド シリーズの優勝者は誰ですか?",
+        role: 'user',
+        content: '2020 年のワールド シリーズの優勝者は誰ですか?',
       },
     ],
   });
@@ -252,9 +256,9 @@ JSON モードではスキーマの遵守が保証されませんでしたが、
 :::
 
 ```typescript title="chapter3/test3-4-structured-outputs.ts"
-import OpenAI from "openai";
-import { zodResponseFormat } from "openai/helpers/zod";
-import { z } from "zod/v4";
+import OpenAI from 'openai';
+import { zodResponseFormat } from 'openai/helpers/zod';
+import { z } from 'zod/v4';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -271,19 +275,19 @@ const Recipe = z.object({
 async function main() {
   // Structured Outputsに対応するZodスキーマを指定して呼び出し
   const response = await client.chat.completions.parse({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: "タコライスのレシピを教えてください" }],
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: 'タコライスのレシピを教えてください' }],
     temperature: 0,
-    response_format: zodResponseFormat(Recipe, "Recipe"),
+    response_format: zodResponseFormat(Recipe, 'Recipe'),
   });
 
   // 生成されたレシピ情報の表示
   const recipe = response.choices[0]?.message.parsed;
 
-  console.log("Recipe Name:", recipe?.name);
-  console.log("Servings:", recipe?.servings);
-  console.log("Ingredients:", recipe?.ingredients);
-  console.log("Steps:", recipe?.steps);
+  console.log('Recipe Name:', recipe?.name);
+  console.log('Servings:', recipe?.servings);
+  console.log('Ingredients:', recipe?.ingredients);
+  console.log('Steps:', recipe?.steps);
 }
 
 main();
@@ -368,7 +372,7 @@ sequenceDiagram
 :::
 
 ```typescript title="chapter3/test3-6-function-calling.ts"
-import OpenAI from "openai";
+import OpenAI from 'openai';
 
 // クライアントを定義
 const client = new OpenAI({
@@ -378,29 +382,29 @@ const client = new OpenAI({
 // 天気情報を取得するダミー関数
 function getWeather(location: string): string {
   const weatherInfo: Record<string, string> = {
-    Tokyo: "晴れ、気温25度",
-    Osaka: "曇り、気温22度",
-    Kyoto: "雨、気温18度",
+    Tokyo: '晴れ、気温25度',
+    Osaka: '曇り、気温22度',
+    Kyoto: '雨、気温18度',
   };
-  return weatherInfo[location] ?? "天気情報が見つかりません";
+  return weatherInfo[location] ?? '天気情報が見つかりません';
 }
 
 // モデルに提供するToolの定義
 const tools: OpenAI.ChatCompletionTool[] = [
   {
-    type: "function",
+    type: 'function',
     function: {
-      name: "get_weather",
-      description: "指定された場所の天気情報を取得します",
+      name: 'get_weather',
+      description: '指定された場所の天気情報を取得します',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: {
           location: {
-            type: "string",
-            description: "都市名（例: Tokyo）",
+            type: 'string',
+            description: '都市名（例: Tokyo）',
           },
         },
-        required: ["location"],
+        required: ['location'],
       },
     },
   },
@@ -409,57 +413,57 @@ const tools: OpenAI.ChatCompletionTool[] = [
 async function main() {
   // 初回のユーザーメッセージ
   const messages: OpenAI.ChatCompletionMessageParam[] = [
-    { role: "user", content: "東京の天気を教えてください" },
+    { role: 'user', content: '東京の天気を教えてください' },
   ];
 
   // モデルへの最初のAPIリクエスト
   const response = await client.chat.completions.create({
-    model: "gpt-4o",
+    model: 'gpt-4o',
     messages,
     temperature: 0,
     tools,
-    tool_choice: "auto",
+    tool_choice: 'auto',
   });
 
   // モデルの応答を処理
   const responseMessage = response.choices[0]?.message;
   if (!responseMessage) {
-    throw new Error("No response message from the model");
+    throw new Error('No response message from the model');
   }
   messages.push(responseMessage);
 
-  console.log("モデルからの応答:");
+  console.log('モデルからの応答:');
   console.log(responseMessage);
 
   // 関数呼び出しを処理
   if (responseMessage.tool_calls) {
     for (const toolCall of responseMessage.tool_calls) {
       if (
-        toolCall.type === "function" &&
-        toolCall.function.name === "get_weather"
+        toolCall.type === 'function' &&
+        toolCall.function.name === 'get_weather'
       ) {
         const functionArgs = JSON.parse(toolCall.function.arguments);
-        console.log("関数の引数:", functionArgs);
+        console.log('関数の引数:', functionArgs);
         const weatherResponse = getWeather(functionArgs.location);
         messages.push({
-          role: "tool",
+          role: 'tool',
           tool_call_id: toolCall.id,
           content: weatherResponse,
         });
       }
     }
   } else {
-    console.log("モデルによるツール呼び出しはありませんでした。");
+    console.log('モデルによるツール呼び出しはありませんでした。');
   }
 
   // モデルへの最終的なAPIリクエスト
   const finalResponse = await client.chat.completions.create({
-    model: "gpt-4o",
+    model: 'gpt-4o',
     messages,
     temperature: 0,
   });
 
-  console.log("Final Response:", finalResponse.choices[0]?.message.content);
+  console.log('Final Response:', finalResponse.choices[0]?.message.content);
 }
 
 main();
@@ -543,23 +547,23 @@ Tavily API を利用するには、[Tavily](https://tavily.com/) でアカウン
 :::
 
 ```typescript title="chapter3/test3-7-tavily-search.ts"
-import { tavily } from "@tavily/core";
+import { tavily } from '@tavily/core';
 
 // Tavily検索クライアントを初期化
-const client = tavily({ apiKey: process.env.TAVILY_API_KEY ?? "" });
+const client = tavily({ apiKey: process.env.TAVILY_API_KEY ?? '' });
 
 // 検索の実行例
-const query = "AIエージェント 実践本";
+const query = 'AIエージェント 実践本';
 const response = await client.search(query, { maxResults: 3 });
 const results = response.results;
 
 console.log(`検索クエリ: ${query}`);
 console.log(`検索結果数: ${results.length}`);
-console.log("\n検索結果:");
+console.log('\n検索結果:');
 results.forEach((result, i) => {
-  console.log(`\n${i + 1}. タイトル: ${result.title ?? "N/A"}`);
-  console.log(`   URL: ${result.url ?? "N/A"}`);
-  console.log(`   内容: ${(result.content ?? "N/A").slice(0, 100)}...`);
+  console.log(`\n${i + 1}. タイトル: ${result.title ?? 'N/A'}`);
+  console.log(`   URL: ${result.url ?? 'N/A'}`);
+  console.log(`   内容: ${(result.content ?? 'N/A').slice(0, 100)}...`);
 });
 ```
 
@@ -623,13 +627,13 @@ LangChain の Tool は、AI エージェントが外部の機能を呼び出す�
 - Tool に関連付けられた属性（`name`、`description`、`schema`）の確認
 
 ```typescript title="chapter3/test3-8-custom-tool-definition.ts"
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
+import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
 
 // 引数スキーマを定義
 const AddArgs = z.object({
-  a: z.number().int().describe("加算する最初の整数。"),
-  b: z.number().int().describe("加算する2つ目の整数。"),
+  a: z.number().int().describe('加算する最初の整数。'),
+  b: z.number().int().describe('加算する2つ目の整数。'),
 });
 
 // Tool定義
@@ -638,15 +642,15 @@ const add = tool(
     return String(a + b);
   },
   {
-    name: "add",
+    name: 'add',
     description: [
-      "このToolは2つの整数を引数として受け取り、それらの合計を返します。",
-      "",
-      "使用例:",
-      "  例:",
+      'このToolは2つの整数を引数として受け取り、それらの合計を返します。',
+      '',
+      '使用例:',
+      '  例:',
       '    入力: {"a": 3, "b": 5}',
-      "    出力: 8",
-    ].join("\n"),
+      '    出力: 8',
+    ].join('\n'),
     schema: AddArgs,
   },
 );
@@ -720,7 +724,7 @@ DuckDuckGo 検索は API キーが不要なため、環境変数の設定なし�
 :::
 
 ```typescript title="chapter3/test3-9-duckduckgo-search.ts"
-import { SafeSearchType, search } from "duck-duck-scrape";
+import { SafeSearchType, search } from 'duck-duck-scrape';
 
 // リトライ付きで検索を実行する関数
 async function searchWithRetry(
@@ -732,7 +736,7 @@ async function searchWithRetry(
     try {
       return await search(query, {
         safeSearch: SafeSearchType.OFF,
-        locale: "ja-JP",
+        locale: 'ja-JP',
       });
     } catch (e) {
       if (attempt === maxRetries) throw e;
@@ -743,25 +747,25 @@ async function searchWithRetry(
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-  throw new Error("検索に失敗しました");
+  throw new Error('検索に失敗しました');
 }
 
 // DuckDuckGo検索を実行（リトライ付き）
-const searchQuery = "AIエージェント 実践本";
+const searchQuery = 'AIエージェント 実践本';
 const searchResponse = await searchWithRetry(searchQuery);
 const searchResults = searchResponse.results.slice(0, 3);
 
 // 検索結果を表示
-console.log("\n検索結果:");
+console.log('\n検索結果:');
 searchResults.forEach((result, i) => {
   console.log(`\n${i + 1}. ${result.title}`);
-  console.log(`   概要: ${(result.description ?? "").slice(0, 100)}...`);
+  console.log(`   概要: ${(result.description ?? '').slice(0, 100)}...`);
   console.log(`   URL: ${result.url}`);
 });
 
 // 最初の検索結果のURLを取得
 if (searchResults.length > 0) {
-  const url = searchResults[0]?.url ?? "";
+  const url = searchResults[0]?.url ?? '';
   console.log(`\n最初の検索結果のURLにアクセスしています: ${url}`);
 
   // Webページを取得
@@ -779,7 +783,7 @@ if (searchResults.length > 0) {
     console.log(`\nエラーが発生しました: ${e}`);
   }
 } else {
-  console.log("\n検索結果はありませんでした");
+  console.log('\n検索結果はありませんでした');
 }
 ```
 
@@ -1172,9 +1176,9 @@ LangChain を使うことで、SQL 生成の中核部分が大幅に簡素化さ
 - データベース周りの処理（初期化・スキーマ抽出・SQL 実行）は 3-11 と同一
 
 ```typescript title="chapter3/test3-11-text-to-sql-langchain.ts"
-import Database from 'better-sqlite3';
-import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { ChatOpenAI } from '@langchain/openai';
+import Database from 'better-sqlite3';
 import { z } from 'zod/v4';
 
 // --- Zodスキーマ: LLMの構造化出力用 ---
@@ -1416,6 +1420,261 @@ LangChain.js には `SqlDatabase` クラス（スキーマの自動抽出や `ge
 このサンプルでは、レガシーパッケージへの依存を避けるため、スキーマ抽出は `better-sqlite3` を直接使って実装し、LangChain の活用は LLM 呼び出し部分（`ChatOpenAI` + `ChatPromptTemplate` + `withStructuredOutput`）に絞っています。
 :::
 
+## 3-13. LangGraph ワークフロー
+
+3-12 までは LangChain のプロンプトやチェーンを使った直線的な処理を扱いましたが、実際の AI エージェントでは「計画 → 生成 → 振り返り → 再生成」のような**ループや条件分岐を含むワークフロー**が必要になります。
+[LangGraph](https://langchain-ai.github.io/langgraphjs/) は、こうした複雑なワークフローを**有向グラフ**（ノード間を方向付きのエッジで結んだグラフ構造）として定義・実行するためのフレームワークです。
+
+### LangGraph の基本概念
+
+LangGraph では、ワークフローを以下の 3 つの要素で構成します。
+
+| 要素 | 説明 |
+| --- | --- |
+| **State（状態）** | ワークフロー全体で共有されるデータ。`Annotation.Root()` で定義し、各ノードが読み書きする |
+| **Node（ノード）** | 処理を行う関数。State を受け取り、更新する部分的な State を返す |
+| **Edge（エッジ）** | ノード間の接続。無条件エッジ（`addEdge`）と条件付きエッジ（`addConditionalEdges`）がある |
+
+### Annotation による State 定義
+
+`Annotation.Root()` でワークフローの State を定義します。配列型のフィールドには `reducer` を指定でき、ノードが返す値を既存の配列に自動的にマージできます。
+
+```typescript
+const AgentState = Annotation.Root({
+  input: Annotation<string>(),
+  plans: Annotation<string[]>({
+    reducer: (left, right) => left.concat(right), // 配列を結合
+    default: () => [],
+  }),
+  output: Annotation<string>(),
+  iteration: Annotation<number>(),
+});
+```
+
+### Plan-Generate-Reflect パターン
+
+このサンプルでは、ブログ記事の自動生成を題材に **Plan-Generate-Reflect** パターンを実装しています。
+
+```mermaid
+graph TD
+    START((START)) --> planner
+    planner["planner<br/>（計画作成）"] --> generator
+    generator["generator<br/>（セクション生成）"] --> check{"iteration > 3?"}
+    check -- Yes --> END((END))
+    check -- No --> reflector["reflector<br/>（フィードバック）"]
+    reflector --> generator
+
+    style planner fill:#e3f2fd
+    style generator fill:#fff3e0
+    style reflector fill:#e8f5e9
+```
+
+1. **planner** - ユーザーの入力に基づいてブログ記事の構成を計画
+2. **generator** - LLM（`ChatOpenAI`）を使い、計画とフィードバックに基づいてセクションを生成
+3. **reflector** - LLM を使って生成された出力を評価し、改善フィードバックを提供
+4. `shouldContinue` 関数で 3 回イテレーションしたら終了
+
+LangGraph では、**ワークフローの流れ（グラフ構造）は開発者が事前に設計**し、**各ノード内の処理ロジックで LLM を活用**するという二層構造になっています。このサンプルでは `planner` はシンプルな静的計画を返しますが、`generator` と `reflector` は `ChatOpenAI` を使って動的にコンテンツを生成・評価します。グラフ構造（ノードの接続やループ条件）は固定のまま、ノード内のロジックだけを柔軟に変更できるのが LangGraph の強みです。
+
+### サンプルの実装内容
+
+このサンプルでは以下を行います。
+
+- `Annotation.Root()` で `reducer` 付きの State を定義
+- `ChatOpenAI` を使い、`generator` ノードと `reflector` ノードで LLM を呼び出し
+- `StateGraph` にノード（`planner`, `generator`, `reflector`）を登録
+- `addEdge` で無条件エッジ、`addConditionalEdges` で条件付きエッジを定義
+- `compile()` でワークフローをコンパイルし、`stream()` で各ステップの出力をストリーミング
+- `getGraphAsync().drawMermaid()` でワークフローの Mermaid 図を生成
+
+```typescript title="chapter3/test3-13-langgraph-workflow.ts"
+import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
+import { ChatOpenAI } from '@langchain/openai';
+
+const llm = new ChatOpenAI({ model: 'gpt-4o-mini', temperature: 0.7 });
+
+// ワークフロー全体の状態を記録するためのAnnotation
+// 基本的に各ノードにこの型の状態が引数に渡される
+const AgentState = Annotation.Root({
+  input: Annotation<string>(),
+  plans: Annotation<string[]>({
+    reducer: (left, right) => left.concat(right),
+    default: () => [],
+  }),
+  feedbacks: Annotation<string[]>({
+    reducer: (left, right) => left.concat(right),
+    default: () => [],
+  }),
+  output: Annotation<string>(),
+  iteration: Annotation<number>(),
+});
+
+type AgentStateType = typeof AgentState.State;
+
+/**
+ * 計画ノード: ユーザーの入力に基づいてブログ記事の作成計画を生成する
+ * @param state - ワークフローの現在の状態
+ * @returns plans フィールドを含む部分的な状態更新
+ */
+function planNode(state: AgentStateType) {
+  // 現在の入力に基づいて計画を作成
+  return {
+    plans: [
+      `ブログ記事「${state.input}」の作成計画:`,
+      '1. イントロダクション',
+      '2. 基本概念',
+      '3. シンプルなワークフロー例',
+      '4. まとめ',
+    ],
+  };
+}
+
+/**
+ * 生成ノード: LLM を使って計画とフィードバックに基づきブログ記事のセクションを生成する
+ * @param state - ワークフローの現在の状態
+ * @returns output と iteration フィールドを含む部分的な状態更新
+ */
+async function generationNode(state: AgentStateType) {
+  const iteration = state.iteration + 1;
+
+  const feedbackContext =
+    state.feedbacks.length > 0
+      ? `\n\n過去のフィードバック:\n${state.feedbacks.join('\n')}`
+      : '';
+
+  const previousOutput = state.output ? `\n\n前回の出力:\n${state.output}` : '';
+
+  const response = await llm.invoke([
+    {
+      role: 'system',
+      content:
+        'あなたはブログ記事のライターです。計画に基づいてブログ記事のセクションを執筆してください。マークダウン形式で出力してください。',
+    },
+    {
+      role: 'user',
+      content: `以下の計画に基づいて、イテレーション ${iteration} のブログ記事セクションを書いてください。
+
+計画:
+${state.plans.join('\n')}${previousOutput}${feedbackContext}
+
+フィードバックがある場合はそれを反映して改善してください。`,
+    },
+  ]);
+
+  const output = `イテレーション ${iteration} の出力:\n${response.content}`;
+  return { output, iteration };
+}
+
+/**
+ * 振り返りノード: LLM を使って生成された出力を評価し、改善のためのフィードバックを生成する
+ * @param state - ワークフローの現在の状態
+ * @returns feedbacks フィールドを含む部分的な状態更新
+ */
+async function reflectionNode(state: AgentStateType) {
+  const response = await llm.invoke([
+    {
+      role: 'system',
+      content:
+        'あなたはブログ記事の編集者です。与えられたブログ記事のセクションを批評し、具体的な改善点をフィードバックしてください。良い点も指摘してください。',
+    },
+    {
+      role: 'user',
+      content: `以下のブログ記事セクション（イテレーション ${state.iteration}）を評価してフィードバックしてください。
+
+${state.output}`,
+    },
+  ]);
+
+  const feedback = `フィードバック (イテレーション ${state.iteration}):\n${response.content}`;
+  return { feedbacks: [feedback] };
+}
+
+/**
+ * 条件付きエッジの判定関数: イテレーション回数に応じてワークフローの継続・終了を決定する
+ * @param state - ワークフローの現在の状態
+ * @returns 3回を超えた場合は END、それ以外は 'reflector' を返す
+ */
+function shouldContinue(state: AgentStateType): typeof END | 'reflector' {
+  if (state.iteration > 3) {
+    return END;
+  }
+  return 'reflector';
+}
+
+// Graph全体を定義
+const workflow = new StateGraph(AgentState)
+  // 使用するノードを追加。ノード名と対応する関数を書く
+  .addNode('planner', planNode)
+  .addNode('generator', generationNode)
+  .addNode('reflector', reflectionNode)
+  // エントリーポイントを定義。これが最初に呼ばれるノード
+  .addEdge(START, 'planner')
+  // ノードをつなぐエッジを追加
+  .addEdge('planner', 'generator')
+  .addConditionalEdges('generator', shouldContinue, ['reflector', END])
+  .addEdge('reflector', 'generator');
+
+// 最後にworkflowをコンパイルする。これでinvokeやstreamが使用できるようになる
+const app = workflow.compile();
+
+/**
+ * エージェントワークフローを実行し、各ステップの出力とMermaidグラフを表示する
+ */
+async function main() {
+  const inputs = {
+    input:
+      'LangGraphを用いたエージェントワークフロー構築方法のブログ記事を作成して',
+    iteration: 0,
+    plans: [],
+    feedbacks: [],
+    output: '',
+  };
+
+  for await (const s of await app.stream(inputs)) {
+    console.log(Object.values(s)[0]);
+    console.log('----');
+  }
+
+  // mermaidのグラフ定義を表示
+  const mermaidGraph = (await app.getGraphAsync()).drawMermaid();
+  console.log(mermaidGraph);
+}
+
+main();
+```
+
+**実行方法:**
+
+```bash
+pnpm tsx chapter3/test3-13-langgraph-workflow.ts
+```
+
+:::tip StateGraph の stream() と invoke() の違い
+`stream()` は各ノードの実行結果をステップごとに逐次出力します。デバッグやリアルタイム表示に便利です。一方 `invoke()` はワークフロー全体の実行が完了した後に最終的な State を返します。用途に応じて使い分けましょう。
+:::
+
+:::info Annotation の reducer について
+`reducer` は、ノードが State フィールドに値を書き込む際の結合ルールを定義する関数です。たとえば `plans` フィールドに `reducer: (left, right) => left.concat(right)` を指定すると、ノードが返した配列が既存の配列の末尾に自動で結合されます。
+
+このサンプルの `planNode` では、計画を **個別の配列要素** として返しています。
+
+```typescript
+return {
+  plans: [
+    `ブログ記事「${state.input}」の作成計画:`,
+    '1. イントロダクション',
+    '2. 基本概念',
+    '3. シンプルなワークフロー例',
+    '4. まとめ',
+  ],
+};
+```
+
+`reducer` が `left.concat(right)` なので、この 5 つの要素は既存の `plans`（初期値 `[]`）に結合され、`state.plans` は要素数 5 の配列になります。もし将来別のノードからも `plans` を返すと、さらに末尾に追加されます。
+
+一方、`reducer` を指定しないフィールド（`output` や `iteration`）は、ノードが返した値で**上書き**されます。「蓄積したいデータには `reducer`、最新値だけ保持したいデータには `reducer` なし」と使い分けるのがポイントです。
+:::
+
 ## まとめ
 
 この章では、AI エージェントを構築するために必要な OpenAI API の基本操作を、段階的に学びました。
@@ -1426,6 +1685,7 @@ LangChain.js には `SqlDatabase` クラス（スキーマの自動抽出や `ge
 | **ツール連携** | 3-6, 3-8 | Function Calling による外部関数の呼び出しと、LangChain による宣言的なツール定義 |
 | **実践的なツール** | 3-7, 3-9, 3-11 | Web 検索（Tavily / DuckDuckGo）やデータベース検索（Text-to-SQL）など、エージェントが活用する具体的なツールの実装 |
 | **LangChain 活用** | 3-8, 3-12 | LangChain によるカスタム Tool 定義や、`ChatPromptTemplate` + `withStructuredOutput` を使った処理の簡素化 |
+| **ワークフロー構築** | 3-13 | LangGraph による有向グラフワークフローの構築と、Plan-Generate-Reflect パターンの実装 |
 
 これらの要素は、次章以降で構築する AI エージェントの土台となります。特に **Function Calling**（3-6）と **Structured Outputs**（3-4）は、エージェントがツールを呼び出し、その結果を構造化データとして扱うための中核的な仕組みであり、今後も繰り返し登場します。
 
@@ -1443,5 +1703,7 @@ LangChain.js には `SqlDatabase` クラス（スキーマの自動抽出や `ge
 - [duck-duck-scrape](https://www.npmjs.com/package/duck-duck-scrape) - DuckDuckGo 検索結果を取得する npm パッケージ（3-9）
 - [cheerio](https://www.npmjs.com/package/cheerio) - サーバーサイドで HTML をパース・操作するための軽量ライブラリ（3-9 の補足）
 - [better-sqlite3](https://www.npmjs.com/package/better-sqlite3) - Node.js 向けの高速な SQLite3 ライブラリ（3-11, 3-12）
-- [@langchain/openai](https://www.npmjs.com/package/@langchain/openai) - LangChain の OpenAI モデル統合パッケージ（3-12）
+- [@langchain/openai](https://www.npmjs.com/package/@langchain/openai) - LangChain の OpenAI モデル統合パッケージ（3-12, 3-13）
 - [LangChain LCEL](https://js.langchain.com/docs/concepts/lcel/) - LangChain Expression Language（チェーン合成）の公式ドキュメント（3-12）
+- [LangGraph.js](https://langchain-ai.github.io/langgraphjs/) - LangGraph の公式ドキュメント（3-13）
+- [@langchain/langgraph (npm)](https://www.npmjs.com/package/@langchain/langgraph) - LangGraph の npm パッケージ（3-13）

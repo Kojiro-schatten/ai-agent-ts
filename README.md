@@ -173,17 +173,20 @@ pnpm lint:secret
 | [add-doc](.claude/skills/add-doc/SKILL.md) | `/add-doc <ソースコードパス>` | ソースコードからドキュメントセクションを自動生成・追記 |
 | [review-doc](.claude/skills/review-doc/SKILL.md) | `/review-doc chapter3` | ドキュメントの正確性・整合性チェック＆修正 |
 | [brushup-doc](.claude/skills/brushup-doc/SKILL.md) | `/brushup-doc chapter3` | ドキュメントの文章品質向上＆内容充実化 |
+| [cleanup-code](.claude/skills/cleanup-code/SKILL.md) | `/cleanup-code <TSファイルパス>` | TypeScriptコードの型エラー修正・非推奨API置換・未使用import削除・JSDoc追加 |
 
 ### 推奨ワークフロー
 
 ```plaintext
 1. ソースコードを新規作成
        ↓
+  (optional) /cleanup-code で型エラー修正・import整理・JSDoc追加
+       ↓
 2. /add-doc でドキュメントセクションを自動生成
        ↓
-3. /review-doc でコードとの整合性をチェック
+  (optional) /review-doc でコードとの整合性をチェック
        ↓
-4. /brushup-doc で文章品質・内容を仕上げ
+3. /brushup-doc で文章品質・内容を仕上げ
 ```
 
 各スキルの詳細は [.claude/skills/README.md](.claude/skills/README.md) を参照してください。
