@@ -338,7 +338,15 @@ cos(A, B) = (A・B) / (|A| × |B|)
 - 基準テキストとのコサイン類似度を計算し、意味の近さを数値で比較
 
 :::info Claude の Embeddings API について
-Anthropic（Claude）は独自の Embeddings API を提供していません。Claude を使ったシステムで Embeddings が必要な場合は、OpenAI や Google の Embeddings API、またはオープンソースのモデル（Sentence Transformers など）を組み合わせて使用してください。
+Anthropic（Claude）は独自の Embeddings API を提供していません。これは技術的な制約ではなく、戦略的な判断によるものです。
+
+**Anthropic が Embeddings API を提供しない背景:**
+
+- **LLM の安全性と性能への集中** — Anthropic は大規模言語モデル（LLM）の安全性研究と性能向上にリソースを集中させる戦略を取っています。Embedding モデルは LLM とは異なる専門領域であり、学習目的・データ・最適化手法がそれぞれ異なるため、専門のプロバイダーに任せる方が高品質なものを提供できるという判断です
+- **Voyage AI との連携** — Anthropic は Embedding に特化した [Voyage AI](https://www.voyageai.com/) を公式に推奨しています（Voyage AI は 2024 年に Anthropic が買収）。Voyage AI は法律（`voyage-law-2`）、金融（`voyage-finance-2`）、コード（`voyage-code-3`）など、ドメイン特化のモデルも提供しており、汎用的な Embedding モデルよりも高い精度が期待できます
+- **自由な組み合わせが可能** — Embedding モデルと LLM は独立して動作するため、Claude で生成を行い、Embedding には OpenAI・Gemini・Voyage AI など最適なプロバイダーを選択する構成が一般的です
+
+Claude を使ったシステムで Embeddings が必要な場合は、本セクションで紹介する OpenAI や Google の Embeddings API のほか、Voyage AI やオープンソースのモデル（Sentence Transformers など）を組み合わせて使用してください。
 :::
 
 ### プロバイダー別の比較
