@@ -506,6 +506,55 @@ export type AgentSubGraphState = typeof AgentSubGraphStateAnnotation.State;
 
 **`createSubgraph()`** はサブグラフ（ツール選択 → ツール実行 → サブタスク回答 → リフレクション のループ）を構築します。`addConditionalEdges` で `reflect_subtask` ノードからの分岐を定義し、`shouldContinueExecSubtaskFlow()` の結果に応じてリトライか終了かを制御しています。
 
+###### グラフ構築の基本 API
+
+LangGraph でエージェントを構築する際、グラフの構造（ノード間の接続と制御フロー）を明確に定義する必要があります。以下の 3 つの主要なメソッドを使うことで、複雑なワークフローを直感的に表現できます。
+
+**`addNode(name, handler)`**
+
+グラフにノード（処理の単位）を追加します。各ノードは特定の処理を担当し、状態（State）を受け取って更新します。
+
+```typescript
+.addNode('create_plan', (state) => this.createPlan(state))
+.addNode('execute_subtasks', (state) => this.executeSubgraph(state))
+```
+
+第一引数にはノード名（文字列）、第二引数には状態を受け取る処理関数を指定します。
+
+**`addEdge(from, to)`**
+
+2 つのノード間に**無条件の接続**を追加します。`from` ノードの処理が完了すると、必ず `to` ノードへ遷移します。
+
+```typescript
+.addEdge(START, 'create_plan')                  // START から必ず create_plan へ
+.addEdge('execute_subtasks', 'create_answer')   // execute_subtasks から必ず create_answer へ
+.addEdge('create_answer', END)                  // create_answer から必ず END へ
+```
+
+`START` と `END` は LangGraph の特殊なノードで、それぞれグラフの開始点と終了点を表します。
+
+**`addConditionalEdges(from, condition, pathMap?)`**
+
+**条件付きの接続**を追加します。`from` ノードの処理が完了した後、`condition` 関数の返り値に応じて次に遷移するノードを動的に決定します。
+
+```typescript
+// パターン1: Send を使った動的な並列実行（次のノードを動的に決定）
+.addConditionalEdges('create_plan', (state) =>
+  this.shouldContinueExecSubtasks(state),
+)
+
+// パターン2: pathMap を使った明示的な分岐
+.addConditionalEdges(
+  'reflect_subtask',
+  (state) => this.shouldContinueExecSubtaskFlow(state),
+  { continue: 'select_tools', end: END },
+)
+```
+
+**パターン1（pathMapなし）** は、条件関数が `Send` オブジェクト（または `Send` の配列）を返すことで、実行時に決まる数のノードインスタンスを動的に生成できます。計画で生成されたサブタスクの数だけ並列実行したい場合など、動的なスケーリングが必要な場面で使用します（詳細は後述の「Send による動的並列実行」を参照）。
+
+**パターン2（pathMapあり）** は、条件関数が文字列を返し、その文字列に対応するノードへ遷移します。上記の例では、`'continue'` が返されれば `'select_tools'` へ、`'end'` が返されれば `END` へ遷移します。遷移先が事前に決まっている分岐処理に適しています。
+
 ```typescript title="chapter4/agent.ts"
   createGraph() {
     // メソッドチェーンでノードとエッジを追加（型推論のため）
