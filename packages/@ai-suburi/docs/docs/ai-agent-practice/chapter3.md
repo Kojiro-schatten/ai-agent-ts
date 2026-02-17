@@ -572,163 +572,8 @@ pnpm tsx chapter3/test3-2-embeddings-api-gemini.ts
 
 意味が近いテキストほどコサイン類似度が高くなっていることが確認できます。「システム」と「プログラム」のように表現が異なっていても、意味が近ければ高い類似度を示すのが Embeddings の特徴です。
 
-:::info コラム: Embeddings API の背後にある技術
-
-Embeddings API は、単にテキストを数値ベクトルに変換するだけの「ブラックボックス」ではありません。その背後には、自然言語処理（NLP）分野における複数の重要な技術革新が積み重なっています。このセクションでは、Embeddings API を支える主要な技術要素について解説します。
-
-#### Self Attention（自己注意機構）
-
-Self Attention は、Transformer アーキテクチャの中核をなすメカニズムです。従来の RNN（再帰型ニューラルネットワーク）が文章を前から順番に処理していたのに対し、Self Attention は文章内のすべての単語が互いに「どれだけ関連しているか」を同時に計算します。
-
-たとえば「猫がマットの上で寝ている」という文があるとき、Self Attention は以下のように動作します。
-
-- 「上」という単語を理解する際、「マット」との関係性を強く認識（マットの「上」）
-- 「猫」や「寝ている」との関係性も同時に考慮
-- 文脈に応じて、各単語ペア間の「重要度スコア」を計算
-
-これにより、文中の長距離依存関係も効率的に捉えられるようになりました。長距離依存関係とは、離れた位置にある単語同士の関係を指します。
-
-**Self Attention の主な利点:**
-
-| 特徴 | 従来の RNN | Self Attention |
-| --- | --- | --- |
-| 処理方法 | 順次処理（逐次的） | 並列処理（全単語を同時に参照） |
-| 長距離依存 | 苦手（情報が減衰） | 得意（直接的に関係を計算） |
-| 計算速度 | 遅い | 高速（並列化が容易） |
-
-#### Transformer アーキテクチャ
-
-Transformer は、2017 年に Google が発表した「Attention is All You Need」論文で提唱されたモデルアーキテクチャです。Self Attention を多層に重ねた構造を持ち、RNN や CNN（畳み込みニューラルネットワーク）を使いません。Attention のみで高精度な言語理解を実現しました。
-
-Transformer の基本構造は以下の通りです。
-
-```mermaid
-flowchart TB
-    Input["入力テキスト"] --> Embed["単語埋め込み + 位置エンコーディング"]
-    Embed --> Enc["Encoder<br/>（Self Attention + Feed Forward）<br/>× N 層"]
-    Enc --> Dec["Decoder<br/>（Self Attention + Cross Attention + Feed Forward）<br/>× N 層"]
-    Dec --> Output["出力（翻訳・生成など）"]
-
-    style Enc fill:#e3f2fd
-    style Dec fill:#fff3e0
-```
-
-**Transformer の構成要素:**
-
-- **Encoder（エンコーダー）** — 入力テキストを文脈を考慮したベクトル表現に変換
-- **Decoder（デコーダー）** — エンコーダーの出力をもとに、出力テキストを生成
-- **Multi-Head Attention** — 複数の Self Attention を並列実行し、異なる視点から文脈を捉える
-- **Position Encoding** — 単語の順序情報を埋め込む（Self Attention は順序を考慮しないため）
-
-Embeddings API で使われるモデルは、主に Transformer の **Encoder 部分** を活用しています。
-
-#### BERT（Bidirectional Encoder Representations from Transformers）
-
-BERT は、Google が 2018 年に発表した Transformer ベースの事前学習モデルです。Embeddings API や多くの NLP タスクの基盤技術として広く使われています。
-
-**BERT の革新的な点:**
-
-1. **双方向の文脈理解** — 従来のモデルは左から右（または右から左）の一方向のみで文章を読んでいましたが、BERT は **前後両方向から** 文脈を理解します
-   - 例:「私は銀行に行った」という文で、「銀行」の前後を同時に見て、「金融機関の銀行」なのか「川の土手（bank）」なのかを判断
-2. **事前学習 + Fine-tuning** — 大規模なテキストコーパス（Wikipedia など）で事前学習を行います。その後、特定のタスク（感情分析、質問応答など）で追加学習（Fine-tuning）を行うことで、少ないデータでも高精度を実現します
-3. **汎用性** — 事前学習済みモデルをそのまま使うだけで、多様な NLP タスクに適用可能
-
-**BERT の学習タスク:**
-
-BERT は以下の 2 つのタスクで事前学習されます。
-
-- **Masked Language Model（MLM）** — 文中の一部の単語をマスク（隠して）して、その単語を予測するタスク
-  - 例:「私は [MASK] に行った」→「銀行」を予測
-- **Next Sentence Prediction（NSP）** — 2 つの文が連続しているかを判定するタスク
-  - 例:「今日は晴れだ。」「公園に行こう。」→ 連続している（True）
-
-#### Sentence Transformers
-
-Sentence Transformers は、BERT をベースに、**文章全体をベクトル化する**ことに特化したモデル群です。BERT は単語レベルの埋め込みを生成しますが、Sentence Transformers は文章全体の意味を 1 つのベクトルで表現します。
-
-**BERT と Sentence Transformers の違い:**
-
-| 項目 | BERT | Sentence Transformers |
-| --- | --- | --- |
-| 出力 | 各単語のベクトル（文章長に応じて可変） | 文章全体の固定長ベクトル（例: 768 次元） |
-| 主な用途 | 分類、固有表現抽出、質問応答 | 文章の類似度計算、検索、クラスタリング |
-| 類似度計算 | 単語レベルの比較が必要 | 文章レベルで直接比較可能 |
-
-**Sentence Transformers の学習手法:**
-
-Sentence Transformers は、**Siamese Network** と **Contrastive Learning** を使って学習します。
-
-- **Siamese Network（シャムネットワーク）** — 2 つの文章を**同じパラメータを持つモデル**に通し、それぞれのベクトルを生成します。意味が近い文章のベクトルは近く、意味が遠い文章のベクトルは遠くなるように、損失関数を最小化する形で学習します
-- **Contrastive Learning（対照学習）** — 正例ペア（意味が近い: 「犬が走る」と「犬が駆ける」）と負例ペア（意味が遠い: 「犬が走る」と「今日は晴れ」）を大量に用意し、正例は距離を近づけ、負例は距離を離すように学習します。これにより、意味的な類似性を捉えたベクトル空間が構築されます
-
-代表的な Sentence Transformers モデル:
-
-- `all-MiniLM-L6-v2` — 軽量で高速、384 次元
-- `all-mpnet-base-v2` — 高精度、768 次元
-- `paraphrase-multilingual-MiniLM-L12-v2` — 多言語対応
-
-**ローカル実行が可能:**
-
-Sentence Transformers は、Python の `sentence-transformers` ライブラリを使ってローカル環境で実行できます。API コールが不要なため、コストを抑えつつ、データをローカルに保持したまま埋め込みを生成できます。
-
-```python
-from sentence_transformers import SentenceTransformer
-
-model = SentenceTransformer('all-MiniLM-L6-v2')
-embeddings = model.encode(['犬が走る', '猫が走る'])
-```
-
-#### Embeddings API との関係
-
-OpenAI や Google が提供する Embeddings API は、これらの技術を統合・最適化したものです。
-
-```mermaid
-flowchart LR
-    SA["Self Attention"] --> TF["Transformer"]
-    TF --> BERT["BERT"]
-    BERT --> ST["Sentence Transformers"]
-    TF --> API["Embeddings API<br/>(OpenAI, Google)"]
-    BERT --> API
-    ST -.-> API
-
-    style SA fill:#e8f5e9
-    style TF fill:#e3f2fd
-    style BERT fill:#fff3e0
-    style ST fill:#fce4ec
-    style API fill:#fff9c4
-```
-
-**Embeddings API の内部構造:**
-
-1. **基盤は Transformer** — OpenAI の `text-embedding-3-small` や Google の `gemini-embedding-001` は、Transformer Encoder を基盤としています
-2. **BERT の発展形** — BERT の双方向文脈理解を継承しつつ、さらに大規模なデータと計算資源で学習
-3. **Sentence Transformers の影響** — 文章レベルの埋め込みを生成する設計思想は Sentence Transformers と共通
-
-**API と Sentence Transformers の使い分け:**
-
-| 項目 | Embeddings API（クラウド） | Sentence Transformers（ローカル） |
-| --- | --- | --- |
-| 実装の手軽さ | API コール 1 本で完結 | Python 環境のセットアップが必要 |
-| コスト | 従量課金（トークン数に応じて） | 無料（GPU があれば高速化可能） |
-| データの扱い | クラウドに送信される | ローカルに保持可能（プライバシー重視） |
-| モデルの更新 | プロバイダーが自動で最新化 | 自分でモデルを選択・更新 |
-| カスタマイズ | 不可（プロバイダーのモデルを使用） | Fine-tuning やドメイン特化モデルの利用が可能 |
-
-**実践での選択基準:**
-
-- **Embeddings API が適している場合:**
-  - 開発スピードを重視
-  - インフラ管理を避けたい
-  - 最新の高性能モデルを使いたい
-- **Sentence Transformers が適している場合:**
-  - コストを抑えたい（大量のテキストを処理）
-  - データをローカルに保持したい（医療・金融などのセンシティブなデータ）
-  - ドメイン特化モデルを使いたい（法律、医療など）
-
-:::tip 技術の進化は続く
-Embeddings の技術は日々進化しています。2023 年以降、OpenAI は `text-embedding-3` シリーズで次元数削減（`dimensions` パラメータ）をサポートし、Google は `gemini-embedding-001` で高次元（3072 次元）のベクトルを提供しています。また、Voyage AI（Anthropic が買収）はドメイン特化モデルを展開しており、用途に応じた選択肢が増えています。
-:::
-
+:::info Embeddings API の背後にある技術について
+Embeddings API を支える技術的背景（Self Attention、Transformer、BERT、Sentence Transformers など）に興味がある方は、本章末の [コラム: Embeddings API の背後にある技術](#column-embeddings-api) で詳しく解説しています。
 :::
 
 ### RAG（Retrieval-Augmented Generation）の概要
@@ -765,311 +610,8 @@ flowchart TD
 Chapter 2 で紹介したベクトルデータベースを用いた長期メモリは、RAG の一形態と捉えることができます。エージェントが過去の会話や学習した知識をベクトル DB に保存し、新しい質問に対して関連情報を検索して活用する仕組みは、RAG のパイプラインそのものです。RAG の詳しい実装については、後続の章で扱います。
 :::
 
-:::info コラム：ベクトル検索の高速化技術 — ANN（Approximate Nearest Neighbor）
-
-### なぜベクトル検索の高速化が必要なのか？
-
-通常のベクトル検索（**Brute Force / 線形探索**）では、クエリベクトルとデータベース内のすべてのベクトルとの距離を計算する必要があります。データ数が 100 万件の場合、100 万回の計算が必要になり、数秒〜数十秒かかってしまいます。
-
-```typescript
-// 通常の線形探索（全件チェック）
-function bruteForceSearch(query: Vector, allVectors: Vector[], k: number) {
-  const distances = allVectors.map(v => ({
-    vector: v,
-    distance: cosineSimilarity(query, v)
-  }))
-  return distances.sort((a, b) => b.distance - a.distance).slice(0, k)
-}
-// 計算量: O(n) → データ数に比例して遅くなる
-```
-
-この問題を解決するのが **ANN（Approximate Nearest Neighbor）インデックス**です。ANN は「**だいたい近い**ベクトルを**超高速**で見つける」技術で、精度を 95〜99% 程度に抑える代わりに、検索速度を **数百倍〜数千倍** に高速化します。
-
-### 主要な ANN アルゴリズム
-
-#### 1. HNSW (Hierarchical Navigable Small World) 🌟
-
-現在最も広く使われているアルゴリズムで、**グラフベースの階層構造**を使います。
-
-**仕組み：** 高速道路のネットワークのように、複数の階層を持つグラフを構築します。
-
-```mermaid
-flowchart TB
-    subgraph layer2["階層2（高速道路）<br/>粗い接続、遠くへジャンプ"]
-        direction LR
-        L2A["●"] --- L2B["●"] --- L2C["●"]
-    end
-
-    subgraph layer1["階層1（国道）<br/>中程度の接続"]
-        direction LR
-        L1A["●"] --- L1B["●"] --- L1C["●"] --- L1D["●"] --- L1E["●"] --- L1F["●"]
-    end
-
-    subgraph layer0["階層0（一般道）<br/>密な接続、全データ"]
-        direction LR
-        L0A["●"] --- L0B["●"] --- L0C["●"] --- L0D["●"] --- L0E["●"] --- L0F["●"] --- L0G["●"] --- L0H["●"] --- L0I["●"] --- L0J["●"] --- L0K["●"] --- L0L["●"]
-    end
-
-    L2A -.-> L1A
-    L2A -.-> L1B
-    L2B -.-> L1C
-    L2B -.-> L1D
-    L2C -.-> L1E
-    L2C -.-> L1F
-
-    L1A -.-> L0A
-    L1A -.-> L0B
-    L1B -.-> L0C
-    L1B -.-> L0D
-    L1C -.-> L0E
-    L1C -.-> L0F
-    L1D -.-> L0G
-    L1D -.-> L0H
-    L1E -.-> L0I
-    L1E -.-> L0J
-    L1F -.-> L0K
-    L1F -.-> L0L
-
-    style layer2 fill:#fff3e0
-    style layer1 fill:#e3f2fd
-    style layer0 fill:#f3e5f5
-```
-
-**探索プロセス：**
-
-1. 最上層から開始し、目的地に向かって**貪欲に**（常に最も距離が近い隣接ノードを選択する戦略で）最も近い隣接ノードへ進む
-2. これ以上近づけなくなったら、下の階層へ降りる
-3. 最下層で k 個の近傍を取得
-
-**特徴：**
-
-- 検索速度：**超高速**（10ms 程度 / 100 万件）
-- 精度：95〜99%
-- メモリ使用量：やや多め
-- 動的な追加・削除に対応
-
-#### 2. IVF (Inverted File Index) 📂
-
-**クラスタリング**を使ったアプローチです。
-
-**仕組み：** k-means などでデータを複数のクラスタに分割し、検索時は近いクラスタだけを探索します。
-
-```text
-1. データをクラスタリング
-   クラスタ1: 🔴●●●   クラスタ2: 🔵●●●
-   クラスタ3: 🟢●●●   クラスタ4: 🟡●●●
-
-2. クエリに最も近いクラスタを見つける
-   Query: ⭐ → 🔴クラスタ1 が最も近い
-
-3. そのクラスタ内だけで検索
-   🔴●●● ← この中だけチェック（全体ではない）
-```
-
-**特徴：**
-
-- 検索速度：高速（30ms 程度 / 100 万件）
-- 精度：85〜95%（nprobe パラメータで調整可能）
-- メモリ使用量：少なめ
-- 大規模データに適している
-
-#### 3. Product Quantization (PQ) 🗜️
-
-**ベクトル圧縮**に特化したアプローチです。
-
-**仕組み：** ベクトルを複数のサブベクトルに分割し、各サブベクトルを**量子化**（連続値を離散的なコードに変換してコードブック化）します。これにより、元のベクトルを小さな整数のリストとして表現できます。
-
-```text
-元のベクトル（384次元）:
-[0.1, 0.5, -0.3, ..., 0.7]  ← 1536バイト（float32）
-
-↓ 8つのサブベクトルに分割して量子化
-
-[12, 5, 78, ..., 234]  ← たった8バイト！
-```
-
-**特徴：**
-
-- メモリ使用量：**超少ない**（1/10〜1/100 に圧縮）
-- 検索速度：高速（15ms 程度 / 100 万件）
-- 精度：80〜90%（量子化による情報損失）
-- 大規模データに最適
-
-### 最も近いベクトルを取りこぼす可能性は？
-
-ANN は「Approximate（近似）」なので、**真の最近傍を見逃す可能性があります**。
-
-```typescript
-// 例：HNSW で取りこぼしが発生する場合
-const query = [0.5, 0.5, 0.5]
-
-// 真の Top3
-真の1位: [0.51, 0.49, 0.50] 距離: 0.02 ★
-真の2位: [0.48, 0.52, 0.49] 距離: 0.04
-真の3位: [0.45, 0.53, 0.51] 距離: 0.07
-
-// HNSW が返す Top3（1位を取りこぼし）
-HNSW1位: [0.48, 0.52, 0.49] 距離: 0.04 ← 本当は2位
-HNSW2位: [0.45, 0.53, 0.51] 距離: 0.07 ← 本当は3位
-HNSW3位: [0.40, 0.55, 0.52] 距離: 0.15 ← 本当は圏外
-```
-
-**取りこぼしが発生する理由：**
-
-- **HNSW**: グラフの接続が完全ではなく、貪欲探索では到達できないノードがある
-- **IVF**: クラスタの境界付近のベクトルが、隣接クラスタに分類されてしまう
-- **PQ**: 量子化による情報の損失
-
-**実用上の影響は？**
-
-多くの場合、**取りこぼしても問題ありません**。理由は以下の通りです：
-
-1. **Top-k で複数取得する**
-   k=10 で取得すれば、真の Top10 の 95〜99% は含まれる
-
-2. **真の 1 位と 2 位の差が小さい**
-   類似度 0.95 と 0.94 のベクトルは、どちらを選んでも結果の質はほぼ同じ
-
-3. **ベクトル検索の目的**
-   「完璧に最も近い 1 件」よりも「だいたい似ている候補」を爆速で見つけることが重要
-
-### 精度を上げる方法
-
-#### 1. パラメータチューニング
-
-```typescript
-// HNSW のパラメータ例
-const index = new HNSW({
-  M: 64,              // 接続数（デフォルト: 16）→ 大きくすると精度UP
-  efConstruction: 400, // 構築時の探索幅（デフォルト: 200）
-  efSearch: 200        // 検索時の探索幅（デフォルト: 50）→ 大きくすると精度UP、速度DOWN
-})
-
-// デフォルト:  10ms, Recall: 95%
-// チューニング: 30ms, Recall: 99%
-// ※ Recall（再現率）= 真の上位k件のうち実際に取得できた件数の割合
-```
-
-#### 2. 再ランキング（Re-ranking）
-
-2段階検索を行うことで、速度と精度を両立できます。
-
-```mermaid
-flowchart LR
-    Q["クエリ"] --> ANN["1. ANN検索<br/>候補を多めに取得<br/>例: k×3 = 30件"]
-    ANN --> EXACT["2. 正確な距離計算<br/>候補30件に対して<br/>厳密に計算"]
-    EXACT --> TOP["3. 上位k件を返す<br/>例: 10件"]
-
-    style ANN fill:#e3f2fd
-    style EXACT fill:#fff3e0
-    style TOP fill:#e8f5e9
-```
-
-```typescript
-// 2段階検索で精度向上
-async function accurateSearch(query: string, k: number) {
-  // 1. ANN で候補を多めに取得（高速）
-  const candidates = await hnsw.search(query, k * 3)
-
-  // 2. 候補に対して正確な距離計算（精密）
-  const reranked = candidates
-    .map(c => ({
-      ...c,
-      exactDistance: cosineSimilarity(query, c.vector)
-    }))
-    .sort((a, b) => b.exactDistance - a.exactDistance)
-    .slice(0, k)
-
-  return reranked
-}
-```
-
-#### 3. ハイブリッド検索
-
-ベクトル検索とキーワード検索を組み合わせることで、取りこぼしを減らせます。
-
-ベクトル検索は**意味的な類似性**に強いですが、**固有名詞や専門用語**の完全一致には弱い場合があります。そこで、キーワード検索（BM25 など）と併用することで、両方の強みを活かせます。
-
-```typescript
-// ハイブリッド検索の例
-async function hybridSearch(query: string, k: number) {
-  // 1. ベクトル検索で意味的に類似する候補を取得
-  const vectorResults = await vectorDB.search(query, k * 2)
-
-  // 2. キーワード検索で完全一致や部分一致する候補を取得
-  const keywordResults = await fullTextSearch(query, k * 2)
-
-  // 3. 両方の結果をスコアで統合（RRF: Reciprocal Rank Fusion）
-  const combined = combineResults(vectorResults, keywordResults, {
-    vectorWeight: 0.7,   // ベクトル検索の重み
-    keywordWeight: 0.3   // キーワード検索の重み
-  })
-
-  return combined.slice(0, k)
-}
-```
-
-**ハイブリッド検索が有効な例：**
-
-- 「Claude 3.5 Sonnet の API キー取得方法」→ 固有名詞「Claude 3.5 Sonnet」はキーワード検索で確実にヒット
-- 「エラーが出て困っている」→ ベクトル検索で「トラブルシューティング」「問題解決」などの意味的に近い文書を取得
-
-### 実用的なライブラリとデータベース
-
-ANN を実装したライブラリやデータベースは多数あります：
-
-- **[FAISS](https://faiss.ai/)**（Meta 製）: 高速で GPU 対応
-- **[Qdrant](https://qdrant.tech/)**: 使いやすいベクトル DB
-- **[Milvus](https://milvus.io/)**: エンタープライズ向け
-- **[Pinecone](https://www.pinecone.io/)**: マネージドサービス
-- **[ChromaDB](https://www.trychroma.com/)**: 軽量で開発に最適
-
-```typescript
-// ChromaDB の例（HNSW を使用）
-import { ChromaClient } from 'chromadb'
-
-const client = new ChromaClient()
-const collection = await client.createCollection({
-  name: "qa_docs",
-  metadata: { "hnsw:space": "cosine" }
-})
-
-// 検索（内部で HNSW インデックスを使用）
-const results = await collection.query({
-  queryEmbeddings: [queryVector],
-  nResults: 5
-})
-```
-
-### 性能比較（100 万件のデータ）
-
-| 手法 | 検索時間 | 精度 | メモリ使用量 |
-| ------ | --------- | ------ | ------------- |
-| Brute Force | 2000ms | 100% | 1536MB |
-| HNSW | 10ms | 98% | 2500MB |
-| IVF | 30ms | 95% | 1600MB |
-| PQ | 15ms | 90% | 150MB |
-
-### アルゴリズムの使い分けガイド
-
-どの ANN アルゴリズムを選ぶかは、アプリケーションの要件によって変わります。
-
-| 優先する要件 | おすすめアルゴリズム | 理由 |
-| ------------ | -------------------- | ---- |
-| **検索速度と精度の両立** | HNSW | 最も高速で高精度。汎用的に使える |
-| **メモリ使用量の削減** | PQ | メモリを 1/10〜1/100 に圧縮できる |
-| **大規模データ（億件レベル）** | IVF + PQ | クラスタリングと圧縮を組み合わせて効率化 |
-| **動的なデータ追加・削除** | HNSW | インデックスの再構築なしで追加・削除が可能 |
-| **バッチ処理（一度に大量検索）** | IVF | クラスタ単位の処理で効率的 |
-
-**実際のプロダクトでの選択例：**
-
-- **ChatGPT の検索機能**: HNSW を使用していると推測される（高速・高精度が求められるため）
-- **大規模ベクトルDB（Milvus）**: HNSW, IVF, PQ をすべてサポートし、用途に応じて選択可能
-- **組み込みデバイス**: PQ（メモリ制約が厳しい環境）
-
-ANN を使うことで、精度をわずかに犠牲にしながらも、**劇的な高速化**を実現できます。実用的な RAG システムや AI エージェントでは、ANN インデックスはほぼ必須の技術となっています。
-
+:::info ベクトル検索の高速化技術について
+ベクトル検索を高速化する ANN（Approximate Nearest Neighbor）アルゴリズム（HNSW、IVF、PQ など）について詳しくは、本章末の [コラム：ベクトル検索の高速化技術 — ANN](#column-ann) を参照してください。
 :::
 
 ## 3-3. JSON Outputs
@@ -3212,6 +2754,468 @@ return {
 一方、`reducer` を指定しないフィールド（`output` や `iteration`）は、ノードが返した値で**上書き**されます。「蓄積したいデータには `reducer`、最新値だけ保持したいデータには `reducer` なし」と使い分けるのがポイントです。
 :::
 
+## コラム: Embeddings API の背後にある技術 {#column-embeddings-api}
+
+Embeddings API は、単にテキストを数値ベクトルに変換するだけの「ブラックボックス」ではありません。その背後には、自然言語処理（NLP）分野における複数の重要な技術革新が積み重なっています。このセクションでは、Embeddings API を支える主要な技術要素について解説します。
+
+### Self Attention（自己注意機構）
+
+Self Attention は、Transformer アーキテクチャの中核をなすメカニズムです。従来の RNN（再帰型ニューラルネットワーク）が文章を前から順番に処理していたのに対し、Self Attention は文章内のすべての単語が互いに「どれだけ関連しているか」を同時に計算します。
+
+たとえば「猫がマットの上で寝ている」という文があるとき、Self Attention は以下のように動作します。
+
+- 「上」という単語を理解する際、「マット」との関係性を強く認識（マットの「上」）
+- 「猫」や「寝ている」との関係性も同時に考慮
+- 文脈に応じて、各単語ペア間の「重要度スコア」を計算
+
+これにより、文中の長距離依存関係も効率的に捉えられるようになりました。長距離依存関係とは、離れた位置にある単語同士の関係を指します。
+
+**Self Attention の主な利点:**
+
+| 特徴 | 従来の RNN | Self Attention |
+| --- | --- | --- |
+| 処理方法 | 順次処理（逐次的） | 並列処理（全単語を同時に参照） |
+| 長距離依存 | 苦手（情報が減衰） | 得意（直接的に関係を計算） |
+| 計算速度 | 遅い | 高速（並列化が容易） |
+
+### Transformer アーキテクチャ
+
+Transformer は、2017 年に Google が発表した「Attention is All You Need」論文で提唱されたモデルアーキテクチャです。Self Attention を多層に重ねた構造を持ち、RNN や CNN（畳み込みニューラルネットワーク）を使いません。Attention のみで高精度な言語理解を実現しました。
+
+Transformer の基本構造は以下の通りです。
+
+```mermaid
+flowchart TB
+    Input["入力テキスト"] --> Embed["単語埋め込み + 位置エンコーディング"]
+    Embed --> Enc["Encoder<br/>（Self Attention + Feed Forward）<br/>× N 層"]
+    Enc --> Dec["Decoder<br/>（Self Attention + Cross Attention + Feed Forward）<br/>× N 層"]
+    Dec --> Output["出力（翻訳・生成など）"]
+
+    style Enc fill:#e3f2fd
+    style Dec fill:#fff3e0
+```
+
+**Transformer の構成要素:**
+
+- **Encoder（エンコーダー）** — 入力テキストを文脈を考慮したベクトル表現に変換
+- **Decoder（デコーダー）** — エンコーダーの出力をもとに、出力テキストを生成
+- **Multi-Head Attention** — 複数の Self Attention を並列実行し、異なる視点から文脈を捉える
+- **Position Encoding** — 単語の順序情報を埋め込む（Self Attention は順序を考慮しないため）
+
+Embeddings API で使われるモデルは、主に Transformer の **Encoder 部分** を活用しています。
+
+### BERT（Bidirectional Encoder Representations from Transformers）
+
+BERT は、Google が 2018 年に発表した Transformer ベースの事前学習モデルです。Embeddings API や多くの NLP タスクの基盤技術として広く使われています。
+
+**BERT の革新的な点:**
+
+1. **双方向の文脈理解** — 従来のモデルは左から右（または右から左）の一方向のみで文章を読んでいましたが、BERT は **前後両方向から** 文脈を理解します
+   - 例:「私は銀行に行った」という文で、「銀行」の前後を同時に見て、「金融機関の銀行」なのか「川の土手（bank）」なのかを判断
+2. **事前学習 + Fine-tuning** — 大規模なテキストコーパス（Wikipedia など）で事前学習を行います。その後、特定のタスク（感情分析、質問応答など）で追加学習（Fine-tuning）を行うことで、少ないデータでも高精度を実現します
+3. **汎用性** — 事前学習済みモデルをそのまま使うだけで、多様な NLP タスクに適用可能
+
+**BERT の学習タスク:**
+
+BERT は以下の 2 つのタスクで事前学習されます。
+
+- **Masked Language Model（MLM）** — 文中の一部の単語をマスク（隠して）して、その単語を予測するタスク
+  - 例:「私は [MASK] に行った」→「銀行」を予測
+- **Next Sentence Prediction（NSP）** — 2 つの文が連続しているかを判定するタスク
+  - 例:「今日は晴れだ。」「公園に行こう。」→ 連続している（True）
+
+### Sentence Transformers
+
+Sentence Transformers は、BERT をベースに、**文章全体をベクトル化する**ことに特化したモデル群です。BERT は単語レベルの埋め込みを生成しますが、Sentence Transformers は文章全体の意味を 1 つのベクトルで表現します。
+
+**BERT と Sentence Transformers の違い:**
+
+| 項目 | BERT | Sentence Transformers |
+| --- | --- | --- |
+| 出力 | 各単語のベクトル（文章長に応じて可変） | 文章全体の固定長ベクトル（例: 768 次元） |
+| 主な用途 | 分類、固有表現抽出、質問応答 | 文章の類似度計算、検索、クラスタリング |
+| 類似度計算 | 単語レベルの比較が必要 | 文章レベルで直接比較可能 |
+
+**Sentence Transformers の学習手法:**
+
+Sentence Transformers は、**Siamese Network** と **Contrastive Learning** を使って学習します。
+
+- **Siamese Network（シャムネットワーク）** — 2 つの文章を**同じパラメータを持つモデル**に通し、それぞれのベクトルを生成します。意味が近い文章のベクトルは近く、意味が遠い文章のベクトルは遠くなるように、損失関数を最小化する形で学習します
+- **Contrastive Learning（対照学習）** — 正例ペア（意味が近い: 「犬が走る」と「犬が駆ける」）と負例ペア（意味が遠い: 「犬が走る」と「今日は晴れ」）を大量に用意し、正例は距離を近づけ、負例は距離を離すように学習します。これにより、意味的な類似性を捉えたベクトル空間が構築されます
+
+代表的な Sentence Transformers モデル:
+
+- `all-MiniLM-L6-v2` — 軽量で高速、384 次元
+- `all-mpnet-base-v2` — 高精度、768 次元
+- `paraphrase-multilingual-MiniLM-L12-v2` — 多言語対応
+
+**ローカル実行が可能:**
+
+Sentence Transformers は、Python の `sentence-transformers` ライブラリを使ってローカル環境で実行できます。API コールが不要なため、コストを抑えつつ、データをローカルに保持したまま埋め込みを生成できます。
+
+```python
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
+embeddings = model.encode(['犬が走る', '猫が走る'])
+```
+
+### Embeddings API との関係
+
+OpenAI や Google が提供する Embeddings API は、これらの技術を統合・最適化したものです。
+
+```mermaid
+flowchart LR
+    SA["Self Attention"] --> TF["Transformer"]
+    TF --> BERT["BERT"]
+    BERT --> ST["Sentence Transformers"]
+    TF --> API["Embeddings API<br/>(OpenAI, Google)"]
+    BERT --> API
+    ST -.-> API
+
+    style SA fill:#e8f5e9
+    style TF fill:#e3f2fd
+    style BERT fill:#fff3e0
+    style ST fill:#fce4ec
+    style API fill:#fff9c4
+```
+
+**Embeddings API の内部構造:**
+
+1. **基盤は Transformer** — OpenAI の `text-embedding-3-small` や Google の `gemini-embedding-001` は、Transformer Encoder を基盤としています
+2. **BERT の発展形** — BERT の双方向文脈理解を継承しつつ、さらに大規模なデータと計算資源で学習
+3. **Sentence Transformers の影響** — 文章レベルの埋め込みを生成する設計思想は Sentence Transformers と共通
+
+**API と Sentence Transformers の使い分け:**
+
+| 項目 | Embeddings API（クラウド） | Sentence Transformers（ローカル） |
+| --- | --- | --- |
+| 実装の手軽さ | API コール 1 本で完結 | Python 環境のセットアップが必要 |
+| コスト | 従量課金（トークン数に応じて） | 無料（GPU があれば高速化可能） |
+| データの扱い | クラウドに送信される | ローカルに保持可能（プライバシー重視） |
+| モデルの更新 | プロバイダーが自動で最新化 | 自分でモデルを選択・更新 |
+| カスタマイズ | 不可（プロバイダーのモデルを使用） | Fine-tuning やドメイン特化モデルの利用が可能 |
+
+**実践での選択基準:**
+
+- **Embeddings API が適している場合:**
+  - 開発スピードを重視
+  - インフラ管理を避けたい
+  - 最新の高性能モデルを使いたい
+- **Sentence Transformers が適している場合:**
+  - コストを抑えたい（大量のテキストを処理）
+  - データをローカルに保持したい（医療・金融などのセンシティブなデータ）
+  - ドメイン特化モデルを使いたい（法律、医療など）
+
+:::tip 技術の進化は続く
+Embeddings の技術は日々進化しています。2023 年以降、OpenAI は `text-embedding-3` シリーズで次元数削減（`dimensions` パラメータ）をサポートし、Google は `gemini-embedding-001` で高次元（3072 次元）のベクトルを提供しています。また、Voyage AI（Anthropic が買収）はドメイン特化モデルを展開しており、用途に応じた選択肢が増えています。
+:::
+
+## コラム：ベクトル検索の高速化技術 — ANN（Approximate Nearest Neighbor） {#column-ann}
+
+### なぜベクトル検索の高速化が必要なのか？
+
+通常のベクトル検索（**Brute Force / 線形探索**）では、クエリベクトルとデータベース内のすべてのベクトルとの距離を計算する必要があります。データ数が 100 万件の場合、100 万回の計算が必要になり、数秒〜数十秒かかってしまいます。
+
+```typescript
+// 通常の線形探索（全件チェック）
+function bruteForceSearch(query: Vector, allVectors: Vector[], k: number) {
+  const distances = allVectors.map(v => ({
+    vector: v,
+    distance: cosineSimilarity(query, v)
+  }))
+  return distances.sort((a, b) => b.distance - a.distance).slice(0, k)
+}
+// 計算量: O(n) → データ数に比例して遅くなる
+```
+
+この問題を解決するのが **ANN（Approximate Nearest Neighbor）インデックス**です。ANN は「**だいたい近い**ベクトルを**超高速**で見つける」技術で、精度を 95〜99% 程度に抑える代わりに、検索速度を **数百倍〜数千倍** に高速化します。
+
+### 主要な ANN アルゴリズム
+
+#### 1. HNSW (Hierarchical Navigable Small World) 🌟
+
+現在最も広く使われているアルゴリズムで、**グラフベースの階層構造**を使います。
+
+**仕組み：** 高速道路のネットワークのように、複数の階層を持つグラフを構築します。
+
+```mermaid
+flowchart TB
+    subgraph layer2["階層2（高速道路）<br/>粗い接続、遠くへジャンプ"]
+        direction LR
+        L2A["●"] --- L2B["●"] --- L2C["●"]
+    end
+
+    subgraph layer1["階層1（国道）<br/>中程度の接続"]
+        direction LR
+        L1A["●"] --- L1B["●"] --- L1C["●"] --- L1D["●"] --- L1E["●"] --- L1F["●"]
+    end
+
+    subgraph layer0["階層0（一般道）<br/>密な接続、全データ"]
+        direction LR
+        L0A["●"] --- L0B["●"] --- L0C["●"] --- L0D["●"] --- L0E["●"] --- L0F["●"] --- L0G["●"] --- L0H["●"] --- L0I["●"] --- L0J["●"] --- L0K["●"] --- L0L["●"]
+    end
+
+    L2A -.-> L1A
+    L2A -.-> L1B
+    L2B -.-> L1C
+    L2B -.-> L1D
+    L2C -.-> L1E
+    L2C -.-> L1F
+
+    L1A -.-> L0A
+    L1A -.-> L0B
+    L1B -.-> L0C
+    L1B -.-> L0D
+    L1C -.-> L0E
+    L1C -.-> L0F
+    L1D -.-> L0G
+    L1D -.-> L0H
+    L1E -.-> L0I
+    L1E -.-> L0J
+    L1F -.-> L0K
+    L1F -.-> L0L
+
+    style layer2 fill:#fff3e0
+    style layer1 fill:#e3f2fd
+    style layer0 fill:#f3e5f5
+```
+
+**探索プロセス：**
+
+1. 最上層から開始し、目的地に向かって**貪欲に**（常に最も距離が近い隣接ノードを選択する戦略で）最も近い隣接ノードへ進む
+2. これ以上近づけなくなったら、下の階層へ降りる
+3. 最下層で k 個の近傍を取得
+
+**特徴：**
+
+- 検索速度：**超高速**（10ms 程度 / 100 万件）
+- 精度：95〜99%
+- メモリ使用量：やや多め
+- 動的な追加・削除に対応
+
+#### 2. IVF (Inverted File Index) 📂
+
+**クラスタリング**を使ったアプローチです。
+
+**仕組み：** k-means などでデータを複数のクラスタに分割し、検索時は近いクラスタだけを探索します。
+
+```text
+1. データをクラスタリング
+   クラスタ1: 🔴●●●   クラスタ2: 🔵●●●
+   クラスタ3: 🟢●●●   クラスタ4: 🟡●●●
+
+2. クエリに最も近いクラスタを見つける
+   Query: ⭐ → 🔴クラスタ1 が最も近い
+
+3. そのクラスタ内だけで検索
+   🔴●●● ← この中だけチェック（全体ではない）
+```
+
+**特徴：**
+
+- 検索速度：高速（30ms 程度 / 100 万件）
+- 精度：85〜95%（nprobe パラメータで調整可能）
+- メモリ使用量：少なめ
+- 大規模データに適している
+
+#### 3. Product Quantization (PQ) 🗜️
+
+**ベクトル圧縮**に特化したアプローチです。
+
+**仕組み：** ベクトルを複数のサブベクトルに分割し、各サブベクトルを**量子化**（連続値を離散的なコードに変換してコードブック化）します。これにより、元のベクトルを小さな整数のリストとして表現できます。
+
+```text
+元のベクトル（384次元）:
+[0.1, 0.5, -0.3, ..., 0.7]  ← 1536バイト（float32）
+
+↓ 8つのサブベクトルに分割して量子化
+
+[12, 5, 78, ..., 234]  ← たった8バイト！
+```
+
+**特徴：**
+
+- メモリ使用量：**超少ない**（1/10〜1/100 に圧縮）
+- 検索速度：高速（15ms 程度 / 100 万件）
+- 精度：80〜90%（量子化による情報損失）
+- 大規模データに最適
+
+### 最も近いベクトルを取りこぼす可能性は？
+
+ANN は「Approximate（近似）」なので、**真の最近傍を見逃す可能性があります**。
+
+```typescript
+// 例：HNSW で取りこぼしが発生する場合
+const query = [0.5, 0.5, 0.5]
+
+// 真の Top3
+真の1位: [0.51, 0.49, 0.50] 距離: 0.02 ★
+真の2位: [0.48, 0.52, 0.49] 距離: 0.04
+真の3位: [0.45, 0.53, 0.51] 距離: 0.07
+
+// HNSW が返す Top3（1位を取りこぼし）
+HNSW1位: [0.48, 0.52, 0.49] 距離: 0.04 ← 本当は2位
+HNSW2位: [0.45, 0.53, 0.51] 距離: 0.07 ← 本当は3位
+HNSW3位: [0.40, 0.55, 0.52] 距離: 0.15 ← 本当は圏外
+```
+
+**取りこぼしが発生する理由：**
+
+- **HNSW**: グラフの接続が完全ではなく、貪欲探索では到達できないノードがある
+- **IVF**: クラスタの境界付近のベクトルが、隣接クラスタに分類されてしまう
+- **PQ**: 量子化による情報の損失
+
+**実用上の影響は？**
+
+多くの場合、**取りこぼしても問題ありません**。理由は以下の通りです：
+
+1. **Top-k で複数取得する**
+   k=10 で取得すれば、真の Top10 の 95〜99% は含まれる
+
+2. **真の 1 位と 2 位の差が小さい**
+   類似度 0.95 と 0.94 のベクトルは、どちらを選んでも結果の質はほぼ同じ
+
+3. **ベクトル検索の目的**
+   「完璧に最も近い 1 件」よりも「だいたい似ている候補」を爆速で見つけることが重要
+
+### 精度を上げる方法
+
+#### 1. パラメータチューニング
+
+```typescript
+// HNSW のパラメータ例
+const index = new HNSW({
+  M: 64,              // 接続数（デフォルト: 16）→ 大きくすると精度UP
+  efConstruction: 400, // 構築時の探索幅（デフォルト: 200）
+  efSearch: 200        // 検索時の探索幅（デフォルト: 50）→ 大きくすると精度UP、速度DOWN
+})
+
+// デフォルト:  10ms, Recall: 95%
+// チューニング: 30ms, Recall: 99%
+// ※ Recall（再現率）= 真の上位k件のうち実際に取得できた件数の割合
+```
+
+#### 2. 再ランキング（Re-ranking）
+
+2段階検索を行うことで、速度と精度を両立できます。
+
+```mermaid
+flowchart LR
+    Q["クエリ"] --> ANN["1. ANN検索<br/>候補を多めに取得<br/>例: k×3 = 30件"]
+    ANN --> EXACT["2. 正確な距離計算<br/>候補30件に対して<br/>厳密に計算"]
+    EXACT --> TOP["3. 上位k件を返す<br/>例: 10件"]
+
+    style ANN fill:#e3f2fd
+    style EXACT fill:#fff3e0
+    style TOP fill:#e8f5e9
+```
+
+```typescript
+// 2段階検索で精度向上
+async function accurateSearch(query: string, k: number) {
+  // 1. ANN で候補を多めに取得（高速）
+  const candidates = await hnsw.search(query, k * 3)
+
+  // 2. 候補に対して正確な距離計算（精密）
+  const reranked = candidates
+    .map(c => ({
+      ...c,
+      exactDistance: cosineSimilarity(query, c.vector)
+    }))
+    .sort((a, b) => b.exactDistance - a.exactDistance)
+    .slice(0, k)
+
+  return reranked
+}
+```
+
+#### 3. ハイブリッド検索
+
+ベクトル検索とキーワード検索を組み合わせることで、取りこぼしを減らせます。
+
+ベクトル検索は**意味的な類似性**に強いですが、**固有名詞や専門用語**の完全一致には弱い場合があります。そこで、キーワード検索（BM25 など）と併用することで、両方の強みを活かせます。
+
+```typescript
+// ハイブリッド検索の例
+async function hybridSearch(query: string, k: number) {
+  // 1. ベクトル検索で意味的に類似する候補を取得
+  const vectorResults = await vectorDB.search(query, k * 2)
+
+  // 2. キーワード検索で完全一致や部分一致する候補を取得
+  const keywordResults = await fullTextSearch(query, k * 2)
+
+  // 3. 両方の結果をスコアで統合（RRF: Reciprocal Rank Fusion）
+  const combined = combineResults(vectorResults, keywordResults, {
+    vectorWeight: 0.7,   // ベクトル検索の重み
+    keywordWeight: 0.3   // キーワード検索の重み
+  })
+
+  return combined.slice(0, k)
+}
+```
+
+**ハイブリッド検索が有効な例：**
+
+- 「Claude 3.5 Sonnet の API キー取得方法」→ 固有名詞「Claude 3.5 Sonnet」はキーワード検索で確実にヒット
+- 「エラーが出て困っている」→ ベクトル検索で「トラブルシューティング」「問題解決」などの意味的に近い文書を取得
+
+### 実用的なライブラリとデータベース
+
+ANN を実装したライブラリやデータベースは多数あります：
+
+- **[FAISS](https://faiss.ai/)**（Meta 製）: 高速で GPU 対応
+- **[Qdrant](https://qdrant.tech/)**: 使いやすいベクトル DB
+- **[Milvus](https://milvus.io/)**: エンタープライズ向け
+- **[Pinecone](https://www.pinecone.io/)**: マネージドサービス
+- **[ChromaDB](https://www.trychroma.com/)**: 軽量で開発に最適
+
+```typescript
+// ChromaDB の例（HNSW を使用）
+import { ChromaClient } from 'chromadb'
+
+const client = new ChromaClient()
+const collection = await client.createCollection({
+  name: "qa_docs",
+  metadata: { "hnsw:space": "cosine" }
+})
+
+// 検索（内部で HNSW インデックスを使用）
+const results = await collection.query({
+  queryEmbeddings: [queryVector],
+  nResults: 5
+})
+```
+
+### 性能比較（100 万件のデータ）
+
+| 手法 | 検索時間 | 精度 | メモリ使用量 |
+| ------ | --------- | ------ | ------------- |
+| Brute Force | 2000ms | 100% | 1536MB |
+| HNSW | 10ms | 98% | 2500MB |
+| IVF | 30ms | 95% | 1600MB |
+| PQ | 15ms | 90% | 150MB |
+
+### アルゴリズムの使い分けガイド
+
+どの ANN アルゴリズムを選ぶかは、アプリケーションの要件によって変わります。
+
+| 優先する要件 | おすすめアルゴリズム | 理由 |
+| ------------ | -------------------- | ---- |
+| **検索速度と精度の両立** | HNSW | 最も高速で高精度。汎用的に使える |
+| **メモリ使用量の削減** | PQ | メモリを 1/10〜1/100 に圧縮できる |
+| **大規模データ（億件レベル）** | IVF + PQ | クラスタリングと圧縮を組み合わせて効率化 |
+| **動的なデータ追加・削除** | HNSW | インデックスの再構築なしで追加・削除が可能 |
+| **バッチ処理（一度に大量検索）** | IVF | クラスタ単位の処理で効率的 |
+
+**実際のプロダクトでの選択例：**
+
+- **ChatGPT の検索機能**: HNSW を使用していると推測される（高速・高精度が求められるため）
+- **大規模ベクトルDB（Milvus）**: HNSW, IVF, PQ をすべてサポートし、用途に応じて選択可能
+- **組み込みデバイス**: PQ（メモリ制約が厳しい環境）
+
+ANN を使うことで、精度をわずかに犠牲にしながらも、**劇的な高速化**を実現できます。実用的な RAG システムや AI エージェントでは、ANN インデックスはほぼ必須の技術となっています。
+
 ## コラム: LLM API を統一的に扱うためのライブラリ比較
 
 この章では OpenAI・Gemini・Claude の 3 つのプロバイダーを個別に実装してきました。各プロバイダーの SDK はインポートパス・レスポンス構造・エラーハンドリングがそれぞれ異なるため、プロバイダーごとに個別のコードを書く必要がありました。しかし、実際のプロダクト開発では「コスト比較のためにモデルを差し替えたい」「特定のプロバイダーが障害時に別のプロバイダーへフォールバックしたい」といったニーズが出てきます。
@@ -3380,9 +3384,6 @@ const { text } = await generateText({
 
 - OpenAI. [Chat Completions API](https://platform.openai.com/docs/guides/text-generation) - Chat Completions API の公式ガイド（3-1）
 - OpenAI. [Embeddings](https://platform.openai.com/docs/guides/embeddings) - Embeddings API の公式ガイド（3-2）
-- Vaswani et al. (2017). [Attention Is All You Need](https://arxiv.org/abs/1706.03762) - Transformer アーキテクチャを提唱した原論文（3-2 コラム）
-- Devlin et al. (2018). [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805) - BERT の原論文（3-2 コラム）
-- [Sentence Transformers Documentation](https://sbert.net/) - Sentence Transformers の公式ドキュメント（3-2 コラム）
 - OpenAI. [Structured Outputs](https://platform.openai.com/docs/guides/structured-outputs) - JSON モードおよび Structured Outputs の公式ドキュメント（3-3, 3-4）
 - OpenAI. [Responses API](https://platform.openai.com/docs/api-reference/responses) - Responses API の公式リファレンス（3-5）
 - OpenAI. [Responses vs Chat Completions](https://platform.openai.com/docs/guides/responses-vs-chat-completions) - Responses API と Chat Completions API の比較ガイド（3-5 参考）
@@ -3403,4 +3404,7 @@ const { text } = await generateText({
 - [LangChain LCEL](https://js.langchain.com/docs/concepts/lcel/) - LangChain Expression Language（チェーン合成）の公式ドキュメント（3-12）
 - [LangGraph.js](https://langchain-ai.github.io/langgraphjs/) - LangGraph の公式ドキュメント（3-13）
 - [@langchain/langgraph (npm)](https://www.npmjs.com/package/@langchain/langgraph) - LangGraph の npm パッケージ（3-13）
+- Vaswani et al. (2017). [Attention Is All You Need](https://arxiv.org/abs/1706.03762) - Transformer アーキテクチャを提唱した原論文（コラム）
+- Devlin et al. (2018). [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805) - BERT の原論文（コラム）
+- [Sentence Transformers Documentation](https://sbert.net/) - Sentence Transformers の公式ドキュメント（コラム）
 - [Vercel AI SDK](https://ai-sdk.dev/) - 複数の LLM プロバイダーを統一的に扱える TypeScript SDK の公式ドキュメント（コラム）
