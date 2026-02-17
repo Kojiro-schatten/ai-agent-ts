@@ -116,6 +116,10 @@ const config: Config = {
               label: 'Chapter 3: AIエージェントの開発準備',
               to: '/docs/ai-agent-practice/chapter3',
             },
+            {
+              label: 'Chapter 4: ヘルプデスク担当者を支援するAIエージェントの実装',
+              to: '/docs/ai-agent-practice/chapter4',
+            },
           ],
         },
         {

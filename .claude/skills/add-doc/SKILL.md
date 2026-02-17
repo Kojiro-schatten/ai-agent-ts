@@ -46,6 +46,30 @@ pnpm tsx chapter<N>/<ファイル名>.ts
 \```
 ```
 
+## 新規ページ（mdファイル）を作成する場合
+
+新しい章やセクションとして md ファイルを新規作成した場合は、フッターにもリンクを追加する。
+
+1. `packages/@ai-suburi/docs/docusaurus.config.ts` を開く
+2. `footer.links` 配列の中から、対応するカテゴリの `items` を探す
+3. 既存のリンク一覧の末尾に、新しいページへのリンクを追加する
+
+```typescript
+{
+  label: '<Chapter N: ページタイトル>',
+  to: '/docs/<カテゴリ>/<ファイル名（拡張子なし）>',
+},
+```
+
+例: `docs/ai-agent-practice/chapter4.md` を追加した場合、「AI エージェント実践入門」カテゴリの `items` 末尾に以下を追加する。
+
+```typescript
+{
+  label: 'Chapter 4: ヘルプデスク担当者を支援するAIエージェントの実装',
+  to: '/docs/ai-agent-practice/chapter4',
+},
+```
+
 ## 追記時のルール
 
 - ファイル名からセクション番号を抽出する（例: `test3-8-xxx.ts` → セクション `3-8`）
