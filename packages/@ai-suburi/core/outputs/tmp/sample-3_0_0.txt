@@ -1,0 +1,4 @@
+{'successful_normality_p': 4.0165415357033935e-17,
+ 'unsuccessful_normality_p': 2.227223652602956e-06,
+ 'test_statistic': 34518.5,
+ 'p_value': 5.515095772272003e-44}
