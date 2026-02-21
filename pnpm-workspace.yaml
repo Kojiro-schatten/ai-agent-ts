@@ -1,3 +1,4 @@
 packages:
   - "packages/@ai-suburi/core"
   - "packages/@ai-suburi/docs"
+  - "packages/@ai-suburi/bedrock-agentcore-cdk"

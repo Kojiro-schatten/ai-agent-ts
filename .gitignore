@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 *.db
 *.db-wal
 *.db-shm
+
+# CDK
+cdk.out/

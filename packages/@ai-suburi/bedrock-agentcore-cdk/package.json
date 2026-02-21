@@ -1,0 +1,27 @@
+{
+  "name": "@ai-suburi/bedrock-agentcore-cdk",
+  "version": "1.0.0",
+  "description": "Bedrock AgentCore CDK Sample - Runtime + Endpoint deployment",
+  "type": "module",
+  "scripts": {
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "destroy": "cdk destroy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-cdk/aws-bedrock-agentcore-alpha": "^2.238.0-alpha.0",
+    "aws-cdk-lib": "^2.238.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "aws-cdk": "^2.238.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

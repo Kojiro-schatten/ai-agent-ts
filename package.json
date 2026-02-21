@@ -8,6 +8,10 @@
     "tsx": "pnpm --filter @ai-suburi/core exec tsx",
     "dev:docs": "pnpm --filter @ai-suburi/docs start",
     "build:docs": "pnpm --filter @ai-suburi/docs build",
+    "cdk": "pnpm --filter @ai-suburi/bedrock-agentcore-cdk cdk",
+    "cdk:synth": "pnpm --filter @ai-suburi/bedrock-agentcore-cdk synth",
+    "cdk:deploy": "pnpm --filter @ai-suburi/bedrock-agentcore-cdk deploy",
+    "cdk:destroy": "pnpm --filter @ai-suburi/bedrock-agentcore-cdk destroy",
     "lint:secret": "secretlint \"**/*\"",
     "prepare": "husky"
   },
@@ -17,7 +21,8 @@
   "packageManager": "pnpm@10.8.0",
   "pnpm": {
     "onlyBuiltDependencies": [
-      "better-sqlite3"
+      "better-sqlite3",
+      "esbuild"
     ]
   },
   "devDependencies": {
