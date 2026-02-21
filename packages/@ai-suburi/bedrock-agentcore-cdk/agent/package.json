@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.800.0",
-    "express": "^5.1.0"
+    "@hono/node-server": "^1.14.0",
+    "hono": "^4.7.0"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0",
     "@types/node": "^25.1.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

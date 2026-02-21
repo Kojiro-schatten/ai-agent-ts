@@ -12,6 +12,7 @@
     "cdk:synth": "pnpm --filter @ai-suburi/bedrock-agentcore-cdk synth",
     "cdk:deploy": "pnpm --filter @ai-suburi/bedrock-agentcore-cdk deploy",
     "cdk:destroy": "pnpm --filter @ai-suburi/bedrock-agentcore-cdk destroy",
+    "agent:install": "pnpm install --ignore-workspace -C packages/@ai-suburi/bedrock-agentcore-cdk/agent",
     "lint:secret": "secretlint \"**/*\"",
     "prepare": "husky"
   },

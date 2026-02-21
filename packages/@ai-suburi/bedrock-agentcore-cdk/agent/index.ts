@@ -1,4 +1,5 @@
-import express from 'express';
+import { serve } from '@hono/node-server';
+import { Hono } from 'hono';
 import {
   BedrockRuntimeClient,
   ConverseCommand,
@@ -12,32 +13,30 @@ const MODEL_ID =
 // --- Bedrock クライアント ---
 const bedrockClient = new BedrockRuntimeClient({});
 
-// --- Express アプリ ---
-const app = express();
-app.use(express.json());
+// --- Hono アプリ ---
+const app = new Hono();
 
 /**
  * ヘルスチェックエンドポイント
  * AgentCore Runtime はこのエンドポイントでコンテナの状態を監視する
  */
-app.get('/ping', (_req, res) => {
-  res.json({ status: 'Healthy' });
+app.get('/ping', (c) => {
+  return c.json({ status: 'Healthy' });
 });
 
 /**
  * メインの推論エンドポイント
  * AgentCore Runtime からのリクエストを受け取り、Bedrock モデルで処理して応答を返す
  */
-app.post('/invocations', async (req, res) => {
+app.post('/invocations', async (c) => {
   try {
-    const { prompt } = req.body as { prompt?: string };
+    const { prompt } = await c.req.json<{ prompt?: string }>();
 
     if (!prompt) {
-      res.status(400).json({
-        response: 'prompt field is required',
-        status: 'error',
-      });
-      return;
+      return c.json(
+        { response: 'prompt field is required', status: 'error' },
+        400,
+      );
     }
 
     // Bedrock Converse API でモデルを呼び出す
@@ -60,21 +59,21 @@ app.post('/invocations', async (req, res) => {
         ?.map((block) => ('text' in block ? block.text : ''))
         .join('') ?? '';
 
-    res.json({
-      response: responseText,
-      status: 'success',
-    });
+    return c.json({ response: responseText, status: 'success' });
   } catch (error) {
     console.error('Invocation error:', error);
-    res.status(500).json({
-      response: error instanceof Error ? error.message : 'Unknown error',
-      status: 'error',
-    });
+    return c.json(
+      {
+        response: error instanceof Error ? error.message : 'Unknown error',
+        status: 'error',
+      },
+      500,
+    );
   }
 });
 
 // --- サーバー起動 ---
-app.listen(PORT, '0.0.0.0', () => {
+serve({ fetch: app.fetch, port: PORT, hostname: '0.0.0.0' }, () => {
   console.log(
     `Agent server running on http://0.0.0.0:${PORT} (model: ${MODEL_ID})`,
   );

@@ -12,18 +12,23 @@ TypeScript版 現場で活用するためのAIエージェント実践入門
 /
 ├── packages/
 │   └── @ai-suburi/
-│       ├── core/            # サンプルコード (@ai-suburi/core)
-│       │   ├── chapter3/    # 第3章のサンプル
+│       ├── core/                    # サンプルコード (@ai-suburi/core)
+│       │   ├── chapter3/            # 第3章のサンプル
 │       │   ├── package.json
 │       │   └── tsconfig.json
-│       └── docs/            # Docusaurus ドキュメント (@ai-suburi/docs)
-│           ├── docs/
-│           ├── src/
-│           ├── docusaurus.config.ts
+│       ├── docs/                    # Docusaurus ドキュメント (@ai-suburi/docs)
+│       │   ├── docs/
+│       │   ├── src/
+│       │   ├── docusaurus.config.ts
+│       │   └── package.json
+│       └── bedrock-agentcore-cdk/   # AgentCore CDK サンプル (@ai-suburi/bedrock-agentcore-cdk)
+│           ├── agent/               # エージェントアプリ（Docker コンテナ）
+│           ├── lib/
+│           ├── bin/
 │           └── package.json
-├── pnpm-workspace.yaml      # ワークスペース設定
-├── package.json             # ルート設定
-└── tsconfig.json            # 共通TypeScript設定
+├── pnpm-workspace.yaml              # ワークスペース設定
+├── package.json                     # ルート設定
+└── tsconfig.json                    # 共通TypeScript設定
 ```
 
 ## 開発環境
@@ -148,6 +153,14 @@ npm install -g pnpm
 
 ```zsh
 pnpm install
+```
+
+#### AgentCore エージェントアプリの依存インストール
+
+`agent/` ディレクトリは Docker ビルド用に独立した `package.json` を持っているため、ワークスペースとは別にインストールが必要です。
+
+```zsh
+pnpm agent:install
 ```
 
 ## 使用方法
