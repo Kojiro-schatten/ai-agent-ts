@@ -4,7 +4,7 @@
 
 既存リポジトリに Amazon Bedrock AgentCore のサンプルコードを追加する。`bedrock-agentcore/index.md` で概念説明は完了済みなので、次のステップとして **AWS CDK を使った実際のデプロイコード** と **解説ドキュメント** を作成する。
 
-最初のサンプルは「最もシンプルな構成」として **Runtime のみ** をカバーし、基本的なエージェントアプリ + CDK インフラコードの両方を含める。
+最初のサンプルは「最もシンプルな構成」として **Runtime + Endpoint** をカバーし、基本的なエージェントアプリ + CDK インフラコードの両方を含める。
 
 ---
 
@@ -34,22 +34,70 @@ packages/@ai-suburi/bedrock-agentcore-cdk/
 
 - **フレームワーク:** Express（広く知られており教育用途に最適）
 - **ポート:** 8080（Runtime の固定要件）
+- **コンテナアーキテクチャ:** ARM64 必須（AgentCore Runtime の固定要件）
 - **エンドポイント:**
-  - `GET /ping` → ヘルスチェック（200 OK を返す）
-  - `POST /invocations` → ユーザーのプロンプトを受け取り、Bedrock（Claude）で処理して応答を返す
+  - `GET /ping` → ヘルスチェック（`{ "status": "Healthy" }` を返す）
+  - `POST /invocations` → ユーザーのプロンプト（`{ "prompt": "..." }`）を受け取り、Bedrock（Claude）で処理して応答（`{ "response": "...", "status": "success" }`）を返す
+- **環境変数:**
+  - `MODEL_ID` — 使用する Bedrock モデル ID（デフォルト: `anthropic.claude-sonnet-4-20250514`）
 - **依存パッケージ:**
   - `express` + `@types/express`
   - `@aws-sdk/client-bedrock-runtime`（Bedrock モデル呼び出し用）
   - `typescript`, `tsx`
+- **Dockerfile の基本構成:**
+
+  ```dockerfile
+  FROM --platform=linux/arm64 node:20-slim
+  WORKDIR /app
+  COPY package*.json ./
+  RUN npm install --production
+  COPY . .
+  RUN npx tsc
+  EXPOSE 8080
+  CMD ["node", "dist/index.js"]
+  ```
 
 ### 1-2. CDK スタック (`lib/agentcore-runtime-stack.ts`)
 
-**目的:** AgentCore Runtime をデプロイする CDK スタック
+**目的:** AgentCore Runtime + Endpoint をデプロイする CDK スタック
 
 - `@aws-cdk/aws-bedrock-agentcore-alpha` の L2 コンストラクトを使用
-- Docker イメージを `agent/` ディレクトリからビルド
-- Bedrock モデルへのアクセス権限を IAM で設定
+- **`AgentRuntimeArtifact.fromAsset()`** で `agent/` ディレクトリの Dockerfile からコンテナビルド
+- **`agentcore.Runtime`** でランタイムリソースを作成（環境変数 `MODEL_ID` を設定）
+- **`runtime.grant()`** で Bedrock モデルへの `InvokeModel` 権限を付与
+- **`agentcore.RuntimeEndpoint`** でエンドポイントを作成（invoke 可能にする）
 - 教育用のコメントを豊富に記載
+
+**CDK スタックのイメージ:**
+
+```typescript
+import * as agentcore from '@aws-cdk/aws-bedrock-agentcore-alpha';
+import * as path from 'path';
+
+// 1. ローカル Dockerfile からアーティファクト作成
+const artifact = agentcore.AgentRuntimeArtifact.fromAsset(
+  path.join(__dirname, '../agent'),
+);
+
+// 2. Runtime 作成
+const runtime = new agentcore.Runtime(this, 'Runtime', {
+  agentRuntimeArtifact: artifact,
+  environmentVariables: {
+    MODEL_ID: 'anthropic.claude-sonnet-4-20250514',
+  },
+});
+
+// 3. Bedrock モデルへのアクセス権限付与
+runtime.grant(['bedrock:InvokeModel'], [
+  'arn:aws:bedrock:*::foundation-model/anthropic.claude-*',
+]);
+
+// 4. Endpoint 作成（invoke 可能にする）
+new agentcore.RuntimeEndpoint(this, 'Endpoint', {
+  agentRuntimeId: runtime.runtimeId,
+  agentRuntimeVersion: '1',
+});
+```
 
 ### 1-3. CDK アプリ (`bin/app.ts`)
 
@@ -63,6 +111,7 @@ packages/@ai-suburi/bedrock-agentcore-cdk/
 - `constructs`
 - `@aws-cdk/aws-bedrock-agentcore-alpha`
 - `aws-cdk`（devDependencies）
+- `esbuild`（devDependencies）
 - `typescript`, `tsx`
 
 ---
@@ -81,13 +130,13 @@ packages/@ai-suburi/bedrock-agentcore-cdk/
 4. **前提条件** — AWS CLI, CDK CLI, Docker, Node.js の準備
 5. **アーキテクチャ概要** — Mermaid ダイアグラムでデプロイ構成を図示
 6. **エージェントアプリの実装** — `agent/index.ts` のコード解説
-7. **CDK スタックの実装** — `lib/agentcore-runtime-stack.ts` のコード解説
+7. **CDK スタックの実装** — `lib/agentcore-runtime-stack.ts` のコード解説（AgentRuntimeArtifact の作成 / Runtime の構成 / IAM 権限の付与 / RuntimeEndpoint の作成）
 8. **デプロイ手順** — `cdk bootstrap` → `cdk deploy` の流れ
 9. **動作確認** — `agentcore invoke` またはAPIでの呼び出しテスト
 10. **クリーンアップ** — `cdk destroy` でリソース削除
 11. **参考資料** — 公式ドキュメントへのリンク
 
-**スタイル:** 既存ドキュメントに合わせて、です/ます調、Mermaid 図、:::note/:::tip/:::caution を使用
+**スタイル:** 既存ドキュメントに合わせて、です/ます調、Mermaid 図、:::note/:::tip/:::caution を使用。コードサンプルには `title` 属性でファイルパスを指定（例: `` ```typescript title="lib/agentcore-runtime-stack.ts" ``）
 
 ---
 
@@ -116,6 +165,9 @@ packages/@ai-suburi/bedrock-agentcore-cdk/
 
 ## 5. 検証方法
 
-- `cd packages/@ai-suburi/bedrock-agentcore-cdk && npx tsc --noEmit` で型チェック通過を確認
+- `cd packages/@ai-suburi/bedrock-agentcore-cdk && npx tsc --noEmit` で CDK 側の型チェック通過を確認
+- `cd packages/@ai-suburi/bedrock-agentcore-cdk/agent && npx tsc --noEmit` で agent 側の型チェック通過を確認
 - `cd packages/@ai-suburi/bedrock-agentcore-cdk && npx cdk synth` で CloudFormation テンプレート生成を確認
 - `pnpm dev:docs` でドキュメントサイトにアクセスし、新しいページが表示されることを確認
+
+※ 初回デプロイ前には `cdk bootstrap` が必要（ドキュメントの「デプロイ手順」セクションに記載）
