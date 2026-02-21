@@ -11,6 +11,7 @@
 | [brushup-doc](#brushup-doc) | `/brushup-doc chapter3` | ドキュメントの文章品質向上＆内容充実化 |
 | [cleanup-code](#cleanup-code) | `/cleanup-code packages/@ai-suburi/core/chapter3/test3-12.ts` | TypeScriptコードの型エラー修正・非推奨API置換・未使用import削除・JSDoc追加 |
 | [commit](#commit) | `/commit` | 変更を分析して日本語 Conventional Commits 形式でコミット |
+| [sync-readme](#sync-readme) | `/sync-readme` | プロジェクトの実態に合わせてルート README.md を同期 |
 
 ## 推奨ワークフロー
 
@@ -153,3 +154,26 @@ TypeScript コードの型エラー修正・未使用 import 削除・JSDoc 追�
 ### コミットメッセージの形式
 
 1行目に type + 日本語の要約、本文に変更点の箇条書き、末尾に Co-Authored-By を付与する。
+
+---
+
+## sync-readme
+
+プロジェクトの実態に合わせてルート `README.md` を最新の状態に同期するスキル。
+
+- **引数**（任意）: 更新対象セクション（例: `ディレクトリ構成`, `開発環境`, `セットアップ`）
+- **使用ツール**: Bash, Read, Edit, Glob, Grep
+
+### 同期対象セクション
+
+1. **ディレクトリ構成** — ツリー図をパッケージ構成に合わせて更新
+2. **開発環境** — ツール一覧テーブルを依存パッケージに合わせて更新
+3. **セットアップ** — インストール手順・コマンドを scripts に合わせて更新
+4. **使用方法** — スクリプトコマンドを scripts に合わせて更新
+5. **Claude Code Skills** — スキル一覧テーブルをスキル定義に合わせて更新
+
+### 同期の流れ
+
+1. 各パッケージの `package.json`・ディレクトリ構成・スキル定義を収集
+2. README の各セクションと実態を比較
+3. 差分があるセクションを更新

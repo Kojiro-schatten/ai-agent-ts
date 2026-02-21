@@ -207,7 +207,7 @@ pnpm lint:secret
 
 ## Claude Code Skills
 
-本プロジェクトでは、ドキュメント管理を効率化するための [Claude Code スキル](.claude/skills/) を用意しています。
+本プロジェクトでは、開発を効率化するための [Claude Code スキル](.claude/skills/) を用意しています。
 
 | スキル | コマンド例 | 概要 |
 | --- | --- | --- |
@@ -215,6 +215,8 @@ pnpm lint:secret
 | [review-doc](.claude/skills/review-doc/SKILL.md) | `/review-doc chapter3` | ドキュメントの正確性・整合性チェック＆修正 |
 | [brushup-doc](.claude/skills/brushup-doc/SKILL.md) | `/brushup-doc chapter3` | ドキュメントの文章品質向上＆内容充実化 |
 | [cleanup-code](.claude/skills/cleanup-code/SKILL.md) | `/cleanup-code <TSファイルパス>` | TypeScriptコードの型エラー修正・非推奨API置換・未使用import削除・JSDoc追加 |
+| [commit](.claude/skills/commit/SKILL.md) | `/commit` | 変更を分析して日本語 Conventional Commits 形式でコミット |
+| [sync-readme](.claude/skills/sync-readme/SKILL.md) | `/sync-readme` | プロジェクトの実態に合わせてルート README.md を同期 |
 
 ### 推奨ワークフロー
 
