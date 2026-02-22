@@ -120,6 +120,10 @@ const config: Config = {
               label: 'Chapter 4: ヘルプデスク担当者を支援するAIエージェントの実装',
               to: '/docs/ai-agent-practice/chapter4',
             },
+            {
+              label: 'Chapter 5: データ分析AIエージェントの実装',
+              to: '/docs/ai-agent-practice/chapter5',
+            },
           ],
         },
         {
