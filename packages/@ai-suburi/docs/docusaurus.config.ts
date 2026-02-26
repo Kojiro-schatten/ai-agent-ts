@@ -24,11 +24,11 @@ const config: Config = {
   url: 'https://Imamachi-n.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/genai-agent-advanced-book-typescript/',
+  baseUrl: '/ai-agent-ts/',
 
   // GitHub pages deployment config.
   organizationName: 'Imamachi-n',
-  projectName: 'genai-agent-advanced-book-typescript',
+  projectName: 'ai-agent-ts',
 
   onBrokenLinks: 'throw',
 
@@ -49,7 +49,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/Imamachi-n/genai-agent-advanced-book-typescript/tree/main/packages/create-docusaurus/templates/shared/',
+            'https://github.com/Imamachi-n/ai-agent-ts/tree/main/packages/create-docusaurus/templates/shared/',
         },
         blog: false,
         theme: {
@@ -96,7 +96,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          href: 'https://github.com/Imamachi-n/genai-agent-advanced-book-typescript',
+          href: 'https://github.com/Imamachi-n/ai-agent-ts',
           label: 'GitHub',
           position: 'right',
         },
@@ -140,7 +140,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/Imamachi-n/genai-agent-advanced-book-typescript',
+              href: 'https://github.com/Imamachi-n/ai-agent-ts',
             },
           ],
         },
