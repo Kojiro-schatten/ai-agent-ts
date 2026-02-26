@@ -17,6 +17,7 @@ sidebar_position: 2
 - **DuckDuckGo** を使った無料の Web 検索とページ取得
 - **Text-to-SQL** による自然言語からの SQL クエリ生成と検索
 - **LangChain** による Text-to-SQL の簡素化（`ChatPromptTemplate` + `withStructuredOutput`）
+- **LangGraph** によるエージェントワークフローの構築（`StateGraph` + ノード + エッジ）
 
 :::
 
@@ -35,6 +36,7 @@ flowchart LR
     D --> F["<b>3-8</b><br/>LangChain Tool<br/>（宣言的なツール定義）"]
     C --> G["<b>3-11</b><br/>Text-to-SQL<br/>（自然言語 DB 検索）"]
     G --> H["<b>3-12</b><br/>Text-to-SQL<br/>（LangChain 版）"]
+    D --> I["<b>3-13</b><br/>LangGraph<br/>（ワークフロー構築）"]
 
     style A fill:#e3f2fd
     style B fill:#e3f2fd
@@ -44,7 +46,22 @@ flowchart LR
     style F fill:#fff3e0
     style G fill:#fff3e0
     style H fill:#e8f5e9
+    style I fill:#e8f5e9
 ```
+
+### 各セクションの要約（3-1 〜 3-12）
+
+| セクション | テーマ | ひとことまとめ |
+| --- | --- | --- |
+| **3-1** | Chat Completions API | OpenAI の `gpt-4o` モデルにメッセージを送り、応答テキストとトークン使用量を取得する最も基本的な API 呼び出し。`system` / `user` / `assistant` の 3 つのロールで会話を構成する。 |
+| **3-3** | JSON Outputs | `response_format: { type: "json_object" }` を指定し、モデルの出力を有効な JSON に制約する。スキーマの保証はないが、`assistant` ロールでヒントを渡すことで出力構造を誘導できる。 |
+| **3-4** | Structured Outputs | Zod スキーマ + `zodResponseFormat` でモデルの出力を **100% スキーマ準拠** にする。`parse()` メソッドで型付きオブジェクトを直接取得でき、型安全なデータ抽出が可能。 |
+| **3-6** | Function Calling | モデルが「どの関数をどの引数で呼ぶべきか」を JSON で返す仕組み。アプリ側で関数を実行し結果を `role: "tool"` で返却するループにより、外部データを活用した応答を生成する。 |
+| **3-7** | Tavily Search | AI エージェント向けに最適化された Web 検索 API。1 回のコールで検索結果とページコンテンツの両方を取得でき、LLM が直接活用しやすい形式で返す。 |
+| **3-8** | LangChain カスタム Tool | LangChain の `tool` ヘルパーで、Zod スキーマ・関数本体・メタデータを一体で定義。Function Calling の JSON Schema 手書きと比べてメンテナンス性と型安全性が向上する。 |
+| **3-9** | DuckDuckGo Web 検索 | API キー不要・無料で Web 検索を行える `duck-duck-scrape` を使う代替手段。コンテンツ抽出は自前で行う必要があるが、プロトタイピングに最適。 |
+| **3-11** | Text-to-SQL | 自然言語の質問を SQL に変換してデータベース検索を行うツール。Structured Outputs で SQL を型安全に生成し、`SELECT` のみ許可する安全性チェックを実装。 |
+| **3-12** | Text-to-SQL（LangChain 版） | 3-11 の LLM 呼び出し部分を `ChatOpenAI` + `ChatPromptTemplate` + `withStructuredOutput()` に置き換え、ボイラープレートを大幅に削減。LCEL の `pipe()` でプロンプトと LLM をチェーンとして合成。 |
 
 :::info 前提条件
 
@@ -52,6 +69,7 @@ flowchart LR
 - 3-7 のみ、環境変数 `TAVILY_API_KEY` に Tavily の API キーが設定されていること
 - 3-11 のみ、`better-sqlite3` パッケージがインストールされていること（`pnpm install` で自動インストール）
 - 3-12 のみ、`@langchain/openai` パッケージが追加で必要（`pnpm install` で自動インストール）
+- 3-13 のみ、`@langchain/langgraph` パッケージが追加で必要（`pnpm install` で自動インストール）
 
 :::
 
@@ -1416,6 +1434,220 @@ LangChain.js には `SqlDatabase` クラス（スキーマの自動抽出や `ge
 このサンプルでは、レガシーパッケージへの依存を避けるため、スキーマ抽出は `better-sqlite3` を直接使って実装し、LangChain の活用は LLM 呼び出し部分（`ChatOpenAI` + `ChatPromptTemplate` + `withStructuredOutput`）に絞っています。
 :::
 
+## 3-13. LangGraph によるエージェントワークフロー
+
+ここまでのセクションでは、LLM の呼び出し（3-1）、構造化出力（3-4）、ツール連携（3-6）、LangChain によるチェーン合成（3-12）といった個々のテクニックを学びました。ここでは、これらを組み合わせて**エージェントのワークフロー全体を構築する**方法として、[LangGraph](https://langchain-ai.github.io/langgraphjs/) を紹介します。
+
+LangGraph は、LangChain チームが開発した**グラフベースのワークフロー構築フレームワーク**です。エージェントの処理フローを「ノード」（各ステップの処理）と「エッジ」（ステップ間の遷移）で表現し、条件分岐やループを含む複雑なワークフローを宣言的に定義できます。
+
+### なぜ LangGraph が必要なのか？
+
+単純な LLM アプリケーション（質問 → 回答）であれば、3-1 の Chat Completions API で十分です。また、3-12 で学んだ LCEL（`prompt.pipe(llm)`）は直線的な処理パイプラインを簡潔に構築できます。しかし、実践的な AI エージェントでは以下のような**LCEL では表現しにくい複雑なフロー**が必要になります。
+
+- **計画 → 実行 → 振り返り**のループ処理
+- 結果の品質に応じた**条件分岐**（合格なら終了、不合格なら再実行）
+- 複数ステップにわたる**状態の管理**
+
+たとえば、「ブログ記事を書いて」というタスクを AI エージェントに依頼するケースを考えます。一発で完璧な記事を生成するのは難しいため、まず構成を計画し、記事を生成し、内容を振り返って改善点を見つけ、それを踏まえて再度計画を立て直す、というループが有効です。LangGraph を使うと、このような反復的な処理フローを**グラフ構造として宣言的に定義**できます。
+
+### Plan → Execute → Reflect パターン
+
+このサンプルでは、AI エージェント開発でよく使われる **Plan → Execute → Reflect（計画 → 実行 → 振り返り）** パターンを採用しています。これは [Chapter 2](./chapter2.md) で解説した「プランニング」コンポーネントを実装に落とし込んだもので、人間が複雑なタスクに取り組むときの思考プロセス（考える → やってみる → 見直す）をモデル化しています。
+
+#### 3 つのノードの役割
+
+| ノード | 役割 | 具体例（ブログ記事作成の場合） |
+| --- | --- | --- |
+| **Planner（計画）** | タスクの進め方を計画する。過去のフィードバックがあれば、それを踏まえて計画を修正する | 「導入 → 概念説明 → コード例 → まとめ」という構成を決める |
+| **Generator（生成）** | Planner が立てた計画に基づいて、実際のアウトプットを生成する | 計画に沿ってブログ記事の本文を生成する |
+| **Reflector（振り返り）** | Generator の出力を評価し、改善点をフィードバックとして返す | 「コード例が不足している」「導入が長すぎる」などの改善点を指摘する |
+
+#### なぜこのパターンが有効なのか？
+
+LLM は一発で完璧な出力を生成するのが苦手です。特に長文生成や複雑なタスクでは、**反復的に改善するアプローチ**が品質を大幅に向上させます。
+
+- **Planner** が全体の方向性を定めることで、Generator が的外れな出力をするリスクを減らす
+- **Generator** が計画に集中して実行することで、一度に考えるべきことを限定できる
+- **Reflector** が客観的に評価することで、Planner だけでは気づけない問題点を発見できる
+
+このループを複数回繰り返すことで、各イテレーションで出力が洗練されていきます。本サンプルでは 3 回のイテレーションを行いますが、実際のアプリケーションでは品質スコアに基づいて動的にループ回数を制御することも可能です。
+
+:::tip このパターンはエージェント開発の定番
+Plan → Execute → Reflect パターンは、論文「[Reflexion: Language Agents with Verbal Reinforcement Learning](https://arxiv.org/abs/2303.11366)」などで提案された手法に基づいており、AI エージェントの自己改善メカニズムとして広く採用されています。本サンプルでは各ノードの中身をダミー実装（`TODO` コメント）にしていますが、実際のアプリケーションでは各ノード内で LLM を呼び出す処理を実装します。
+:::
+
+### LCEL（3-12）との比較
+
+3-12 で学んだ LCEL と LangGraph は、いずれも LangChain エコシステムの一部ですが、得意な処理パターンが異なります。
+
+| 項目 | LCEL（3-12） | LangGraph（3-13） |
+| --- | --- | --- |
+| 処理構造 | 直線的なパイプライン（A → B → C） | グラフ構造（分岐・ループを含む） |
+| 状態管理 | なし（各ステップの出力が次の入力） | `Annotation` で定義した状態を全ノードで共有 |
+| ループ処理 | 不可（再帰的な呼び出しが必要） | `addConditionalEdges()` で宣言的に定義 |
+| 条件分岐 | `RunnableBranch` で限定的に可能 | `addConditionalEdges()` で柔軟に定義 |
+| 適したケース | プロンプト → LLM → パースの直線的な処理 | 計画 → 実行 → 振り返りのような反復的なエージェント処理 |
+
+### LangGraph の核心概念
+
+| 概念 | 説明 |
+| --- | --- |
+| **StateGraph** | ワークフロー全体を管理するグラフ。状態スキーマを受け取って初期化する |
+| **Annotation** | ワークフローの状態（State）を定義するための型スキーマ。`Annotation.Root()` で作成する |
+| **Node** | グラフ内の各処理ステップ。状態を受け取り、更新された状態の一部（`Partial<State>`）を返す関数 |
+| **Edge** | ノード間の遷移を定義する接続。`addEdge()` で固定遷移、`addConditionalEdges()` で条件分岐を定義 |
+| **START / END** | ワークフローの開始地点と終了地点を表す特別なノード |
+| **compile()** | グラフ定義をコンパイルして実行可能な形式（Runnable）に変換する。コンパイル後は `invoke()` や `stream()` で実行できる |
+
+### ワークフローの構造
+
+このサンプルでは、**計画（planner）→ 生成（generator）→ 振り返り（reflector）** のループを 3 回繰り返すワークフローを構築します。
+
+```mermaid
+graph LR
+    S((START)) --> P["planner<br/>計画"]
+    P --> G["generator<br/>生成"]
+    G -->|iteration <= 3| R["reflector<br/>振り返り"]
+    G -->|iteration > 3| E((END))
+    R --> P
+```
+
+### サンプルの実装内容
+
+このサンプルでは以下を行います。
+
+- `Annotation.Root()` でワークフローの状態スキーマ（`input`, `plans`, `feedbacks`, `output`, `iteration`）を定義
+- `StateGraph` でグラフを作成し、3 つのノード（`planner`, `generator`, `reflector`）を追加
+- `addEdge()` で固定のノード間遷移を定義（`START → planner → generator`、`reflector → planner`）
+- `addConditionalEdges()` で `iteration` の値に応じた条件分岐（3 回超で `END`、それ以外は `reflector`）を定義
+- `compile()` でグラフをコンパイルし、`invoke()` で実行
+
+```typescript title="chapter3/text-3-12-lang-graph.ts"
+import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
+
+// ワークフロー前後の状態を記録するためのスキーマ
+// この状態が各ノードに引数として渡される
+const AgentState = Annotation.Root({
+  input: Annotation<string>, // ユーザーの入力
+  plans: Annotation<string[]>({
+    reducer: (current, update) => current.concat(update),
+    default: () => [],
+  }), // 計画ノードの結果
+  feedbacks: Annotation<string[]>({
+    reducer: (current, update) => current.concat(update),
+    default: () => [],
+  }), // 振り返りノードの結果
+  output: Annotation<string>, // 生成ノードの結果
+  iteration: Annotation<number>,
+});
+
+// AgentStateの型を取得
+type AgentStateType = typeof AgentState.State;
+
+// LangGraphでエージェントワークフローの構築
+// 各ノードの処理（ここでは省略）
+function planNode(
+  state: AgentStateType,
+): Partial<AgentStateType> {
+  // TODO: LLMを使って計画を立てる処理を実装
+  console.log(`[planner] input: ${state.input}, iteration: ${state.iteration}`);
+  return { plans: [`Plan for iteration ${state.iteration}`] };
+}
+
+function generationNode(
+  state: AgentStateType,
+): Partial<AgentStateType> {
+  // TODO: LLMを使って文章を生成する処理を実装
+  console.log(`[generator] iteration: ${state.iteration}`);
+  return {
+    output: `Generated output for iteration ${state.iteration}`,
+    iteration: state.iteration + 1,
+  };
+}
+
+function reflectionNode(
+  state: AgentStateType,
+): Partial<AgentStateType> {
+  // TODO: LLMを使って振り返りを行う処理を実装
+  console.log(`[reflector] iteration: ${state.iteration}`);
+  return { feedbacks: [`Feedback for iteration ${state.iteration}`] };
+}
+
+// 条件付きエッジ用の条件。3回イテレーション
+function shouldContinue(state: AgentStateType): string {
+  if (state.iteration > 3) {
+    // End after 3 iterations
+    return END;
+  }
+  return 'reflector';
+}
+
+// Graph全体を定義
+const workflow = new StateGraph(AgentState)
+  // 使用するノードを追加。ノード名と対応する関数を書く。
+  // 名前はこの後も使うので一意である必要がある
+  .addNode('planner', planNode)
+  .addNode('generator', generationNode)
+  .addNode('reflector', reflectionNode)
+  // エントリーポイントを定義。これが最初に呼ばれるノード
+  .addEdge(START, 'planner')
+  // ノードをつなぐエッジを追加
+  .addEdge('planner', 'generator')
+  .addConditionalEdges('generator', shouldContinue, ['reflector', END])
+  .addEdge('reflector', 'planner');
+
+// 最後にworkflowをコンパイルする。これでLangChainのrunnableな形式になる
+// runnableになることでinvoke, streamが使用できるようになる
+const app = workflow.compile();
+
+// invokeで実行する。stateの初期値を渡す
+const result = await app.invoke({
+  input: 'LangGraphを使ったエージェントワークフロー構築方法のブログ記事を作成して',
+  iteration: 0,
+});
+
+console.log('Result:', result);
+
+// npx tsx packages/@ai-suburi/core/chapter3/text-3-12-lang-graph.ts 2>&1
+// 実際に使う時は planNode / generationNode / reflectionNode の中で LLM
+// を呼ぶ処理を書けば、ちゃんとしたエージェントワークフローになる
+```
+
+**実行方法:**
+
+```bash
+pnpm tsx chapter3/text-3-12-lang-graph.ts
+```
+
+**実行結果の例:**
+
+```text
+[planner] input: LangGraphを使ったエージェントワークフロー構築方法のブログ記事を作成して, iteration: 0
+[generator] iteration: 0
+[reflector] iteration: 1
+[planner] input: LangGraphを使ったエージェントワークフロー構築方法のブログ記事を作成して, iteration: 1
+[generator] iteration: 1
+[reflector] iteration: 2
+...
+Result: {
+  input: 'LangGraphを使ったエージェントワークフロー構築方法のブログ記事を作成して',
+  plans: [ 'Plan for iteration 0', 'Plan for iteration 1', ... ],
+  feedbacks: [ 'Feedback for iteration 1', 'Feedback for iteration 2', ... ],
+  output: 'Generated output for iteration 3',
+  iteration: 4
+}
+```
+
+:::tip Annotation の reducer とは？
+`plans` や `feedbacks` フィールドには `reducer` を定義しています。reducer は、ノードが返した値を既存の状態にどう統合するかを制御する関数です。`(current, update) => current.concat(update)` と定義することで、各イテレーションの結果が配列に**追加**されていきます。reducer を定義しない場合（`input` や `output` など）、新しい値で既存の値が**上書き**されます。
+
+この仕組みにより、計画や振り返りの**履歴を蓄積**しながらワークフローを進めることができます。
+:::
+
+:::caution GraphRecursionError に注意
+LangGraph にはデフォルトで **25 ステップ**の再帰制限（`recursionLimit`）が設定されています。ノードが状態を適切に更新せず終了条件を満たさない場合、`GraphRecursionError` が発生してワークフローが停止します。このサンプルでは `generationNode` が `iteration` をインクリメントすることで、`shouldContinue` 関数の終了条件（`iteration > 3`）に到達するようにしています。
+:::
+
 ## まとめ
 
 この章では、AI エージェントを構築するために必要な OpenAI API の基本操作を、段階的に学びました。
@@ -1426,8 +1658,9 @@ LangChain.js には `SqlDatabase` クラス（スキーマの自動抽出や `ge
 | **ツール連携** | 3-6, 3-8 | Function Calling による外部関数の呼び出しと、LangChain による宣言的なツール定義 |
 | **実践的なツール** | 3-7, 3-9, 3-11 | Web 検索（Tavily / DuckDuckGo）やデータベース検索（Text-to-SQL）など、エージェントが活用する具体的なツールの実装 |
 | **LangChain 活用** | 3-8, 3-12 | LangChain によるカスタム Tool 定義や、`ChatPromptTemplate` + `withStructuredOutput` を使った処理の簡素化 |
+| **ワークフロー構築** | 3-13 | LangGraph の `StateGraph` を使った、ノード・エッジ・条件分岐によるエージェントワークフローの定義と実行 |
 
-これらの要素は、次章以降で構築する AI エージェントの土台となります。特に **Function Calling**（3-6）と **Structured Outputs**（3-4）は、エージェントがツールを呼び出し、その結果を構造化データとして扱うための中核的な仕組みであり、今後も繰り返し登場します。
+これらの要素は、次章以降で構築する AI エージェントの土台となります。特に **Function Calling**（3-6）と **Structured Outputs**（3-4）は、エージェントがツールを呼び出し、その結果を構造化データとして扱うための中核的な仕組みであり、今後も繰り返し登場します。また、**LangGraph**（3-13）で学んだワークフロー構築の概念は、複雑なエージェントの処理フローを設計する際の基盤となります。
 
 ---
 
@@ -1445,3 +1678,5 @@ LangChain.js には `SqlDatabase` クラス（スキーマの自動抽出や `ge
 - [better-sqlite3](https://www.npmjs.com/package/better-sqlite3) - Node.js 向けの高速な SQLite3 ライブラリ（3-11, 3-12）
 - [@langchain/openai](https://www.npmjs.com/package/@langchain/openai) - LangChain の OpenAI モデル統合パッケージ（3-12）
 - [LangChain LCEL](https://js.langchain.com/docs/concepts/lcel/) - LangChain Expression Language（チェーン合成）の公式ドキュメント（3-12）
+- [LangGraph.js](https://langchain-ai.github.io/langgraphjs/) - LangGraph の JavaScript / TypeScript 版公式ドキュメント（3-13）
+- [@langchain/langgraph (npm)](https://www.npmjs.com/package/@langchain/langgraph) - LangGraph の npm パッケージ（3-13）
