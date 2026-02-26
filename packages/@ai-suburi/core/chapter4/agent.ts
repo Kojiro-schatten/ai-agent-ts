@@ -474,7 +474,7 @@ export class HelpDeskAgent {
   }
 
   /**
-   * エージェントを実行する
+   * エージェントを実行する.
    */
   async runAgent(question: string): Promise<AgentResult> {
     const app = this.createGraph();
